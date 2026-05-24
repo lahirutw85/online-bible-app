@@ -92,7 +92,12 @@ export default class BibleService {
             // HelloAO content array can mix text strings and footnote tag indicators;
             // join only text segments together.
             const text = item.content
-              .filter(part => typeof part === 'string')
+              .map(part => {
+                if (typeof part === 'string') return part;
+                if (part && typeof part.text === 'string') return part.text;
+                return '';
+              })
+              .filter(t => t.trim() !== '')
               .join(' ');
             flat.push({
               book: book,
@@ -169,7 +174,12 @@ export default class BibleService {
                 if (item.type === 'verse') {
                   const verseNum = item.number || item.verse;
                   const text = item.content
-                    .filter(part => typeof part === 'string')
+                    .map(part => {
+                      if (typeof part === 'string') return part;
+                      if (part && typeof part.text === 'string') return part.text;
+                      return '';
+                    })
+                    .filter(t => t.trim() !== '')
                     .join(' ');
                   flat.push({
                     book: bookCode,
