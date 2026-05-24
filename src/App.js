@@ -225,6 +225,19 @@ export default function App() {
   const [bsbFootnotes, setBsbFootnotes] = useState([]);
   const [bsbOriginalLoading, setBsbOriginalLoading] = useState(false);
   const [searchLoading, setSearchLoading] = useState(false);
+
+  // Double click word dictionary lookup state
+  const [doubleClickWordInfo, setDoubleClickWordInfo] = useState({
+    visible: false,
+    x: 0,
+    y: 0,
+    word: '',
+    verse: null,
+    strongsData: null,
+    loading: false,
+    error: null,
+    verseStrongs: []
+  });
   
   // Theme state
   const [theme, setTheme] = useState(() => localStorage.getItem("bible-theme") || "light");
@@ -461,6 +474,317 @@ export default function App() {
         setBsbFootnotes([]);
       });
   }, [version, selectedBook, selectedChapter]);
+
+  // Check if a translation is English
+  const isEnglishVersion = useCallback((ver) => {
+    return ['BSB', 'KJV', 'ASV', 'BBE'].includes(ver);
+  }, []);
+
+  // Fetch Strong's Definition
+  const fetchStrongsDefinition = useCallback((strongsNumber, verseStrongs = [], matchedKjvWord = '') => {
+    setDoubleClickWordInfo(prev => ({
+      ...prev,
+      loading: true,
+      error: null
+    }));
+
+    fetch(`https://api.biblesupersearch.com/api/strongs?strongs=${strongsNumber}`)
+      .then(res => res.json())
+      .then(data => {
+        if (!data.results || data.results.length === 0) {
+          throw new Error(`No definition found for Strong's ${strongsNumber}`);
+        }
+        const def = data.results[0];
+        setDoubleClickWordInfo(prev => ({
+          ...prev,
+          loading: false,
+          strongsData: {
+            number: strongsNumber,
+            matchedWord: matchedKjvWord || prev.word,
+            rootWord: def.root_word,
+            transliteration: def.transliteration,
+            pronunciation: def.pronunciation,
+            entry: def.entry
+          },
+          verseStrongs: verseStrongs.length > 0 ? verseStrongs : prev.verseStrongs
+        }));
+      })
+      .catch(err => {
+        console.error("Strong's definition fetch error:", err);
+        setDoubleClickWordInfo(prev => ({
+          ...prev,
+          loading: false,
+          error: `Failed to load definition: ${err.message}`,
+          verseStrongs: verseStrongs.length > 0 ? verseStrongs : prev.verseStrongs
+        }));
+      });
+  }, []);
+
+  // Fetch KJV Strongs and map word
+  const fetchStrongsMappingAndLookup = useCallback((verseObj, cleanWord) => {
+    const helloAoBookId = localToHelloAoMap[verseObj.book] || verseObj.book;
+    const url = `https://api.biblesupersearch.com/api?bible=kjv_strongs&reference=${helloAoBookId}+${verseObj.chapter}:${verseObj.verse}&markup=raw`;
+
+    fetch(url)
+      .then(res => res.json())
+      .then(data => {
+        if (!data.results || data.results.length === 0) {
+          throw new Error("No interlinear data found for this verse.");
+        }
+        const verseData = data.results[0].verses.kjv_strongs;
+        const chapterData = verseData[verseObj.chapter];
+        if (!chapterData) throw new Error("Chapter data not found.");
+        const verseTextObj = chapterData[verseObj.verse];
+        if (!verseTextObj) throw new Error("Verse text not found.");
+        const text = verseTextObj.text;
+
+        // Parse words and associated Strong's numbers
+        const wordsWithStrongs = [];
+        const parts = text.split(/\s+/);
+        parts.forEach(part => {
+          const wordMatch = part.match(/^([A-Za-z]+(?:'[A-Za-z]+)?)/i);
+          if (wordMatch) {
+            const word = wordMatch[1].toLowerCase();
+            const strongsMatches = [...part.matchAll(/\{([GH][0-9]+)\}/gi)].map(m => m[1]);
+            wordsWithStrongs.push({ 
+              word: wordMatch[1],
+              cleanWord: word,
+              strongs: strongsMatches 
+            });
+          }
+        });
+
+        // Match clicked word
+        const searchWord = cleanWord.toLowerCase();
+        let match = wordsWithStrongs.find(w => w.cleanWord === searchWord);
+        
+        if (!match) {
+          match = wordsWithStrongs.find(w => 
+            w.cleanWord.startsWith(searchWord) || 
+            searchWord.startsWith(w.cleanWord) ||
+            w.cleanWord.includes(searchWord) ||
+            searchWord.includes(w.cleanWord)
+          );
+        }
+
+        if (match && match.strongs && match.strongs.length > 0) {
+          const strongsNumber = match.strongs[0];
+          fetchStrongsDefinition(strongsNumber, wordsWithStrongs, match.word);
+        } else {
+          setDoubleClickWordInfo(prev => ({
+            ...prev,
+            loading: false,
+            verseStrongs: wordsWithStrongs,
+            error: `Could not automatically match "${cleanWord}". Please select a word from the verse below to see its root meaning:`
+          }));
+        }
+      })
+      .catch(err => {
+        console.error("KJV Strong's mapping fetch error:", err);
+        setDoubleClickWordInfo(prev => ({
+          ...prev,
+          loading: false,
+          error: `Failed to load interlinear mapping: ${err.message}`
+        }));
+      });
+  }, [fetchStrongsDefinition]);
+
+  // Handle double-click event
+  const handleVerseDoubleClick = useCallback((e, verseObj, activeVer) => {
+    const selection = window.getSelection();
+    const selectedText = selection.toString().trim();
+    if (!selectedText) return;
+
+    // Clean punctuation
+    const cleanWord = selectedText.replace(/[.,/#!$%^&*;:{}=\-_`~()?"']/g, "").trim();
+    if (!cleanWord) return;
+
+    let x = e.clientX;
+    let y = e.clientY;
+    try {
+      if (selection.rangeCount > 0) {
+        const range = selection.getRangeAt(0);
+        const rect = range.getBoundingClientRect();
+        x = rect.left + rect.width / 2 + window.scrollX;
+        y = rect.bottom + window.scrollY;
+      }
+    } catch (err) {
+      console.error("Error getting selection rect:", err);
+    }
+
+    setDoubleClickWordInfo({
+      visible: true,
+      x,
+      y,
+      word: cleanWord,
+      verse: verseObj,
+      loading: true,
+      error: null,
+      strongsData: null,
+      verseStrongs: []
+    });
+
+    fetchStrongsMappingAndLookup(verseObj, cleanWord);
+  }, [fetchStrongsMappingAndLookup]);
+
+  // Close double-click tooltip on outside click
+  useEffect(() => {
+    if (!doubleClickWordInfo.visible) return;
+
+    const handleOutsideClick = (e) => {
+      const tooltipEl = document.getElementById('doubleclick-lexicon-tooltip');
+      if (tooltipEl && !tooltipEl.contains(e.target)) {
+        setDoubleClickWordInfo(prev => ({ ...prev, visible: false }));
+      }
+    };
+
+    document.addEventListener('mousedown', handleOutsideClick);
+    return () => {
+      document.removeEventListener('mousedown', handleOutsideClick);
+    };
+  }, [doubleClickWordInfo.visible]);
+
+  // Render double-click lexicon card
+  const renderDoubleClickTooltip = () => {
+    if (!doubleClickWordInfo.visible) return null;
+
+    const { x, y, strongsData, loading, error, verseStrongs } = doubleClickWordInfo;
+    const tooltipWidth = 360;
+    const tooltipHeight = 350;
+    
+    let left = x - tooltipWidth / 2;
+    let top = y + 10;
+
+    if (left + tooltipWidth > window.innerWidth) {
+      left = window.innerWidth - tooltipWidth - 20;
+    }
+    if (left < 10) {
+      left = 10;
+    }
+
+    if (y + tooltipHeight > document.documentElement.scrollHeight) {
+      top = y - tooltipHeight - 20;
+    }
+    if (top < 10) {
+      top = 10;
+    }
+
+    return (
+      <div 
+        id="doubleclick-lexicon-tooltip"
+        className="doubleclick-tooltip-card"
+        style={{
+          position: 'absolute',
+          left: `${left}px`,
+          top: `${top}px`,
+          zIndex: 10000,
+          width: `${tooltipWidth}px`
+        }}
+      >
+        <div className="tooltip-header">
+          <span className="tooltip-title">📖 Word Lexicon Study</span>
+          <Button 
+            type="text" 
+            size="small" 
+            icon={<span style={{ fontWeight: 'bold' }}>×</span>} 
+            onClick={() => setDoubleClickWordInfo(prev => ({ ...prev, visible: false }))} 
+            style={{ color: 'var(--text-secondary)' }}
+          />
+        </div>
+
+        <div className="tooltip-body">
+          {loading ? (
+            <div style={{ textAlign: 'center', padding: '24px 0' }}>
+              <Spin indicator={<LoadingOutlined style={{ fontSize: 24 }} spin />} />
+              <div style={{ marginTop: '8px', color: 'var(--text-secondary)' }}>Searching Strong's concordance...</div>
+            </div>
+          ) : error ? (
+            <div style={{ padding: '8px 0' }}>
+              <div style={{ color: 'var(--accent-color)', fontSize: '13px', marginBottom: '12px' }}>
+                {error}
+              </div>
+              {verseStrongs.length > 0 && (
+                <div className="verse-words-list">
+                  {verseStrongs.map((w, idx) => (
+                    <Button 
+                      key={idx} 
+                      size="small" 
+                      type="dashed"
+                      disabled={w.strongs.length === 0}
+                      onClick={() => w.strongs.length > 0 && fetchStrongsDefinition(w.strongs[0], verseStrongs, w.word)}
+                      style={{ margin: '4px', borderRadius: '4px' }}
+                    >
+                      {w.word} {w.strongs.length > 0 ? `(${w.strongs[0]})` : ''}
+                    </Button>
+                  ))}
+                </div>
+              )}
+            </div>
+          ) : strongsData ? (
+            <div>
+              <div className="tooltip-section info-section">
+                <div className="tooltip-row">
+                  <span className="label">English Word:</span>
+                  <span className="value english-word">{strongsData.matchedWord}</span>
+                </div>
+                <div className="tooltip-row">
+                  <span className="label">Root Word:</span>
+                  <span className="value original-greek-text" dangerouslySetInnerHTML={{ __html: strongsData.rootWord }} />
+                </div>
+                <div className="tooltip-row">
+                  <span className="label">Transliteration:</span>
+                  <span className="value transliteration">{strongsData.transliteration}</span>
+                </div>
+                {strongsData.pronunciation && (
+                  <div className="tooltip-row">
+                    <span className="label">Pronunciation:</span>
+                    <span className="value pronunciation">[{strongsData.pronunciation}]</span>
+                  </div>
+                )}
+                <div className="tooltip-row">
+                  <span className="label">Strong's ID:</span>
+                  <span className="value strongs-code">{strongsData.number}</span>
+                </div>
+              </div>
+
+              <div className="tooltip-section definition-section">
+                <div className="sub-heading">Strong's Definition:</div>
+                <div 
+                  className="definition-entry" 
+                  dangerouslySetInnerHTML={{ __html: strongsData.entry }} 
+                />
+              </div>
+
+              {verseStrongs.length > 0 && (
+                <div className="tooltip-section select-other-section">
+                  <Collapse ghost size="small">
+                    <Collapse.Panel header="Compare other words in this verse" key="1">
+                      <div className="verse-words-list">
+                        {verseStrongs.map((w, idx) => (
+                          <Button 
+                            key={idx} 
+                            size="small" 
+                            type={strongsData.number === w.strongs[0] ? 'primary' : 'default'}
+                            disabled={w.strongs.length === 0}
+                            onClick={() => w.strongs.length > 0 && fetchStrongsDefinition(w.strongs[0], verseStrongs, w.word)}
+                            style={{ margin: '3px', borderRadius: '4px', fontSize: '11px' }}
+                          >
+                            {w.word}
+                          </Button>
+                        ))}
+                      </div>
+                    </Collapse.Panel>
+                  </Collapse>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div style={{ color: 'var(--text-secondary)' }}>No data loaded.</div>
+          )}
+        </div>
+      </div>
+    );
+  };
 
   // Lazy load Compare Bible data when compareVersion, compareMode, selectedBook, or selectedChapter changes
   useEffect(() => {
@@ -815,12 +1139,16 @@ export default function App() {
         overlayStyle={{ maxWidth: isMobile ? '90vw' : '440px' }}
         mouseEnterDelay={0.3}
       >
-        <span className="verse-text bsb-verse-hover">
+        <span 
+          className="verse-text bsb-verse-hover"
+          onDoubleClick={(e) => handleVerseDoubleClick(e, v, 'BSB')}
+          style={{ cursor: 'help' }}
+        >
           {displayText}
         </span>
       </Popover>
     );
-  }, [renderInterlinearTooltip, isMobile]);
+  }, [renderInterlinearTooltip, isMobile, handleVerseDoubleClick]);
 
   // Trigger search
   const handleSearch = async (val) => {
@@ -1595,7 +1923,11 @@ export default function App() {
                                       {version === 'BSB' && !searchActive ? (
                                         renderBsbVerseText(v, v.text)
                                       ) : (
-                                        <span className="verse-text">
+                                        <span 
+                                          className={`verse-text ${isEnglishVersion(version) ? 'english-verse' : ''}`}
+                                          onDoubleClick={isEnglishVersion(version) ? (e) => handleVerseDoubleClick(e, v, version) : undefined}
+                                          style={isEnglishVersion(version) ? { cursor: 'pointer' } : {}}
+                                        >
                                           {searchActive ? renderHighlightedText(v.text, searchTerm) : v.text}
                                         </span>
                                       )}
@@ -1606,7 +1938,11 @@ export default function App() {
                                       <span className="verse-number" style={{ background: 'rgba(0,0,0,0.05)', color: 'var(--text-secondary)' }}>
                                         {searchActive ? `${bookName} ${v.chapter}:${v.verse}` : `${v.verse}`}
                                       </span>
-                                      <span className="verse-text">
+                                      <span 
+                                        className={`verse-text ${isEnglishVersion(compareVersion) ? 'english-verse' : ''}`}
+                                        onDoubleClick={isEnglishVersion(compareVersion) ? (e) => handleVerseDoubleClick(e, v, compareVersion) : undefined}
+                                        style={isEnglishVersion(compareVersion) ? { cursor: 'pointer' } : {}}
+                                      >
                                         {searchActive ? renderHighlightedText(compareText, searchTerm) : compareText}
                                       </span>
                                     </Paragraph>
@@ -1628,7 +1964,11 @@ export default function App() {
                                       {version === 'BSB' && !searchActive ? (
                                         renderBsbVerseText(v, v.text)
                                       ) : (
-                                        <span className="verse-text">
+                                        <span 
+                                          className={`verse-text ${isEnglishVersion(version) ? 'english-verse' : ''}`}
+                                          onDoubleClick={isEnglishVersion(version) ? (e) => handleVerseDoubleClick(e, v, version) : undefined}
+                                          style={isEnglishVersion(version) ? { cursor: 'pointer' } : {}}
+                                        >
                                           {searchActive ? renderHighlightedText(v.text, searchTerm) : v.text}
                                         </span>
                                       )}
@@ -1643,7 +1983,11 @@ export default function App() {
                                       <span className="verse-number" style={{ background: 'rgba(24, 144, 255, 0.08)', color: 'var(--accent-color)', fontSize: '10px', padding: '1px 5px' }}>
                                         {compareVersion}
                                       </span>
-                                      <span className="verse-text" style={{ fontStyle: 'italic', opacity: 0.9 }}>
+                                      <span 
+                                        className={`verse-text ${isEnglishVersion(compareVersion) ? 'english-verse' : ''}`}
+                                        onDoubleClick={isEnglishVersion(compareVersion) ? (e) => handleVerseDoubleClick(e, v, compareVersion) : undefined}
+                                        style={isEnglishVersion(compareVersion) ? { fontStyle: 'italic', opacity: 0.9, cursor: 'pointer' } : { fontStyle: 'italic', opacity: 0.9 }}
+                                      >
                                         {searchActive ? renderHighlightedText(compareText, searchTerm) : compareText}
                                       </span>
                                     </Paragraph>
@@ -1852,6 +2196,7 @@ export default function App() {
           </Collapse.Panel>
         </Collapse>
       </Drawer>
+      {renderDoubleClickTooltip()}
     </ConfigProvider>
   );
 }

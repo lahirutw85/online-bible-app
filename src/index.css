@@ -459,3 +459,164 @@ body {
     cursor: pointer;
   }
 }
+
+/* ===== Double Click Lexicon Tooltip ===== */
+.doubleclick-tooltip-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.15), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  color: var(--text-primary);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  overflow: hidden;
+  box-sizing: border-box;
+  animation: fadeInTooltip 0.15s ease-out;
+}
+
+@keyframes fadeInTooltip {
+  from { opacity: 0; transform: translateY(5px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.doubleclick-tooltip-card .tooltip-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 14px;
+  background: rgba(0, 0, 0, 0.02);
+  border-bottom: 1px solid var(--border-color);
+}
+
+[data-theme='dark'] .doubleclick-tooltip-card .tooltip-header {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.doubleclick-tooltip-card .tooltip-title {
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.doubleclick-tooltip-card .tooltip-body {
+  padding: 14px;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.doubleclick-tooltip-card .tooltip-section {
+  margin-bottom: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.doubleclick-tooltip-card .tooltip-section:last-child {
+  margin-bottom: 0;
+  padding-bottom: 0;
+  border-bottom: none;
+}
+
+.doubleclick-tooltip-card .tooltip-row {
+  display: flex;
+  margin-bottom: 6px;
+  font-size: 13px;
+}
+
+.doubleclick-tooltip-card .tooltip-row:last-child {
+  margin-bottom: 0;
+}
+
+.doubleclick-tooltip-card .tooltip-row .label {
+  font-weight: 600;
+  color: var(--text-secondary);
+  min-width: 110px;
+  flex-shrink: 0;
+}
+
+.doubleclick-tooltip-card .tooltip-row .value {
+  color: var(--text-primary);
+}
+
+.doubleclick-tooltip-card .english-word {
+  color: #ea580c;
+  font-weight: bold;
+}
+
+[data-theme='dark'] .doubleclick-tooltip-card .english-word {
+  color: #ff7a45;
+}
+
+.doubleclick-tooltip-card .original-greek-text {
+  font-family: "Gentium Plus", "SBL Greek", "Cardo", "Times New Roman", serif;
+  color: var(--accent-color);
+  font-weight: 500;
+  font-size: 16px;
+}
+
+.doubleclick-tooltip-card .transliteration {
+  color: #2563eb;
+  font-style: italic;
+}
+
+[data-theme='dark'] .doubleclick-tooltip-card .transliteration {
+  color: #58a6ff;
+}
+
+.doubleclick-tooltip-card .pronunciation {
+  color: #16a34a;
+  font-style: italic;
+}
+
+[data-theme='dark'] .doubleclick-tooltip-card .pronunciation {
+  color: #4ade80;
+}
+
+.doubleclick-tooltip-card .strongs-code {
+  font-weight: bold;
+  background: rgba(0, 0, 0, 0.05);
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 11px;
+}
+
+[data-theme='dark'] .doubleclick-tooltip-card .strongs-code {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.doubleclick-tooltip-card .sub-heading {
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+}
+
+.doubleclick-tooltip-card .definition-entry {
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.doubleclick-tooltip-card .definition-entry i {
+  color: var(--accent-color);
+  font-style: italic;
+}
+
+.doubleclick-tooltip-card .verse-words-list {
+  display: flex;
+  flex-wrap: wrap;
+  max-height: 120px;
+  overflow-y: auto;
+  padding: 4px;
+  background: rgba(0, 0, 0, 0.02);
+  border-radius: 6px;
+  border: 1px solid var(--border-color);
+}
+
+[data-theme='dark'] .doubleclick-tooltip-card .verse-words-list {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.doubleclick-tooltip-card .select-other-section .ant-collapse-header {
+  padding: 4px 0 !important;
+  font-size: 12px !important;
+  color: var(--accent-color) !important;
+}
+
