@@ -88,14 +88,7 @@ const versionsList = [
 
 const antIcon = <LoadingOutlined style={{ fontSize: 32 }} spin />;
 
-// OT books (Genesis to Malachi) - use Hebrew; NT books (Matthew to Revelation) - use Greek
-const ntBooks = new Set([
-  "Matt", "Mark", "Luke", "John", "Acts", "Rom", "1Cor", "2Cor", "Gal", "Eph",
-  "Phil", "Col", "1Thess", "2Thess", "1Tim", "2Tim", "Titus", "Phlm", "Heb",
-  "Jas", "1Pet", "2Pet", "1John", "2John", "3John", "Jude", "Rev"
-]);
 
-const isNTBook = (bookCode) => ntBooks.has(bookCode);
 
 const paletteColors = [
   { name: 'රතු (Red)', hsl: 'hsla(0, 100%, 75%, 0.3)' },
@@ -221,9 +214,6 @@ export default function App() {
   const [compareFullLoaded, setCompareFullLoaded] = useState(false);
 
   // BSB interlinear: Greek/Hebrew original text data
-  const [bsbOriginalData, setBsbOriginalData] = useState({});
-  const [bsbFootnotes, setBsbFootnotes] = useState([]);
-  const [bsbOriginalLoading, setBsbOriginalLoading] = useState(false);
   const [searchLoading, setSearchLoading] = useState(false);
 
   // Double click word dictionary lookup state
@@ -402,78 +392,6 @@ export default function App() {
         });
     }
   }, [version, selectedBook, selectedChapter, isFullLoaded]);
-
-  // Fetch Greek/Hebrew original text when BSB is the active version
-  useEffect(() => {
-    if (version !== 'BSB') return;
-    
-    const helloAoBookId = localToHelloAoMap[selectedBook] || selectedBook;
-    const isNT = isNTBook(selectedBook);
-    const originalTranslation = isNT ? 'grc_byz' : 'hbo_wlc';
-    const cacheKey = `${originalTranslation}_${helloAoBookId}_${selectedChapter}`;
-    
-    // Check cache
-    if (bsbOriginalData[cacheKey]) return;
-    
-    setBsbOriginalLoading(true);
-    const url = `https://bible.helloao.org/api/${originalTranslation}/${helloAoBookId}/${selectedChapter}.json`;
-    
-    fetch(url)
-      .then(res => {
-        if (!res.ok) throw new Error('Failed to fetch original text');
-        return res.json();
-      })
-      .then(data => {
-        const ch = data.chapter;
-        const verseMap = {};
-        if (ch && Array.isArray(ch.content)) {
-          ch.content.forEach(item => {
-            if (item.type === 'verse') {
-              const verseNum = item.number || item.verse;
-              const text = item.content
-                .filter(part => typeof part === 'string')
-                .join(' ');
-              verseMap[verseNum] = text;
-            }
-          });
-        }
-        setBsbOriginalData(prev => ({ ...prev, [cacheKey]: verseMap }));
-        setBsbOriginalLoading(false);
-      })
-      .catch(err => {
-        console.error('Failed to fetch original language text:', err);
-        setBsbOriginalLoading(false);
-      });
-  }, [version, selectedBook, selectedChapter, bsbOriginalData]);
-
-  // Fetch BSB footnotes for the current chapter
-  useEffect(() => {
-    if (version !== 'BSB') {
-      setBsbFootnotes([]);
-      return;
-    }
-    
-    const helloAoBookId = localToHelloAoMap[selectedBook] || selectedBook;
-    const url = `https://bible.helloao.org/api/BSB/${helloAoBookId}/${selectedChapter}.json`;
-    
-    fetch(url)
-      .then(res => {
-        if (!res.ok) throw new Error('Failed to fetch BSB footnotes');
-        return res.json();
-      })
-      .then(data => {
-        const ch = data.chapter;
-        if (ch && Array.isArray(ch.footnotes)) {
-          setBsbFootnotes(ch.footnotes);
-        } else {
-          setBsbFootnotes([]);
-        }
-      })
-      .catch(err => {
-        console.error('Failed to fetch BSB footnotes:', err);
-        setBsbFootnotes([]);
-      });
-  }, [version, selectedBook, selectedChapter]);
 
   // Check if a translation is English
   const isEnglishVersion = useCallback((ver) => {
@@ -1066,89 +984,6 @@ export default function App() {
       </span>
     );
   };
-
-  // Get the original language text for a BSB verse
-  const getBsbOriginalText = useCallback((bookCode, chapter, verseNum) => {
-    const helloAoBookId = localToHelloAoMap[bookCode] || bookCode;
-    const isNT = isNTBook(bookCode);
-    const originalTranslation = isNT ? 'grc_byz' : 'hbo_wlc';
-    const cacheKey = `${originalTranslation}_${helloAoBookId}_${chapter}`;
-    const verseMap = bsbOriginalData[cacheKey];
-    if (!verseMap) return null;
-    return verseMap[verseNum] || null;
-  }, [bsbOriginalData]);
-
-  // Get footnotes for a BSB verse
-  const getBsbFootnotesForVerse = useCallback((verseNum) => {
-    return bsbFootnotes.filter(fn => fn.reference && fn.reference.verse === verseNum);
-  }, [bsbFootnotes]);
-
-  // Render interlinear tooltip content for BSB verses
-  const renderInterlinearTooltip = useCallback((v) => {
-    const isNT = isNTBook(v.book);
-    const langLabel = isNT ? 'Greek (Koine)' : 'Hebrew';
-    const langClass = isNT ? 'greek' : 'hebrew';
-    const originalText = getBsbOriginalText(v.book, v.chapter, v.verse);
-    const footnotes = getBsbFootnotesForVerse(v.verse);
-    const bookName = booksDataEn.find(b => b.code === v.book)?.name || v.book;
-    
-    return (
-      <div className="interlinear-tooltip">
-        <div className="tooltip-header">
-          <span className={`tooltip-lang-badge ${langClass}`}>
-            {isNT ? '📜' : '📖'} {langLabel}
-          </span>
-          <span className="tooltip-ref">{bookName} {v.chapter}:{v.verse}</span>
-        </div>
-        
-        {bsbOriginalLoading && !originalText ? (
-          <div className="loading-indicator">
-            <LoadingOutlined spin /> Loading original text...
-          </div>
-        ) : originalText ? (
-          <div className={`original-text ${langClass}`}>
-            {originalText}
-          </div>
-        ) : (
-          <div className="loading-indicator">
-            <InfoCircleOutlined /> Original text not available
-          </div>
-        )}
-        
-        {footnotes.length > 0 && (
-          <div>
-            {footnotes.map((fn, idx) => (
-              <div key={idx} className="tooltip-footnote">
-                <span className="fn-label">Note:</span>
-                {fn.text}
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-    );
-  }, [getBsbOriginalText, getBsbFootnotesForVerse, bsbOriginalLoading]);
-
-  // Render BSB verse text with hover tooltip
-  const renderBsbVerseText = useCallback((v, displayText) => {
-    return (
-      <Popover
-        content={renderInterlinearTooltip(v)}
-        trigger={isMobile ? 'click' : 'hover'}
-        placement="top"
-        overlayStyle={{ maxWidth: isMobile ? '90vw' : '440px' }}
-        mouseEnterDelay={0.3}
-      >
-        <span 
-          className="verse-text bsb-verse-hover"
-          onDoubleClick={(e) => handleVerseDoubleClick(e, v, 'BSB')}
-          style={{ cursor: 'help' }}
-        >
-          {displayText}
-        </span>
-      </Popover>
-    );
-  }, [renderInterlinearTooltip, isMobile, handleVerseDoubleClick]);
 
   // Trigger search
   const handleSearch = async (val) => {
@@ -1920,17 +1755,13 @@ export default function App() {
                                           {searchActive ? `${bookName} ${v.chapter}:${v.verse}` : `${v.verse}`}
                                         </span>
                                       </Popover>
-                                      {version === 'BSB' && !searchActive ? (
-                                        renderBsbVerseText(v, v.text)
-                                      ) : (
-                                        <span 
-                                          className={`verse-text ${isEnglishVersion(version) ? 'english-verse' : ''}`}
-                                          onDoubleClick={isEnglishVersion(version) ? (e) => handleVerseDoubleClick(e, v, version) : undefined}
-                                          style={isEnglishVersion(version) ? { cursor: 'pointer' } : {}}
-                                        >
-                                          {searchActive ? renderHighlightedText(v.text, searchTerm) : v.text}
-                                        </span>
-                                      )}
+                                      <span 
+                                        className={`verse-text ${isEnglishVersion(version) ? 'english-verse' : ''}`}
+                                        onDoubleClick={isEnglishVersion(version) ? (e) => handleVerseDoubleClick(e, v, version) : undefined}
+                                        style={isEnglishVersion(version) ? { cursor: 'pointer' } : {}}
+                                      >
+                                        {searchActive ? renderHighlightedText(v.text, searchTerm) : v.text}
+                                      </span>
                                     </Paragraph>
                                   </div>
                                   <div style={{ flex: 1 }}>
@@ -1961,17 +1792,13 @@ export default function App() {
                                           {searchActive ? `${bookName} ${v.chapter}:${v.verse}` : `${v.verse}`}
                                         </span>
                                       </Popover>
-                                      {version === 'BSB' && !searchActive ? (
-                                        renderBsbVerseText(v, v.text)
-                                      ) : (
-                                        <span 
-                                          className={`verse-text ${isEnglishVersion(version) ? 'english-verse' : ''}`}
-                                          onDoubleClick={isEnglishVersion(version) ? (e) => handleVerseDoubleClick(e, v, version) : undefined}
-                                          style={isEnglishVersion(version) ? { cursor: 'pointer' } : {}}
-                                        >
-                                          {searchActive ? renderHighlightedText(v.text, searchTerm) : v.text}
-                                        </span>
-                                      )}
+                                      <span 
+                                        className={`verse-text ${isEnglishVersion(version) ? 'english-verse' : ''}`}
+                                        onDoubleClick={isEnglishVersion(version) ? (e) => handleVerseDoubleClick(e, v, version) : undefined}
+                                        style={isEnglishVersion(version) ? { cursor: 'pointer' } : {}}
+                                      >
+                                        {searchActive ? renderHighlightedText(v.text, searchTerm) : v.text}
+                                      </span>
                                     </Paragraph>
                                   </div>
                                   <div style={{ 
@@ -2003,13 +1830,7 @@ export default function App() {
                                     {searchActive ? `${bookName} ${v.chapter}:${v.verse}` : `${v.verse}`}
                                   </span>
                                 </Popover>
-                                {version === 'BSB' && !searchActive ? (
-                                  renderBsbVerseText(v, v.text)
-                                ) : (
-                                  <span className="verse-text">
-                                    {searchActive ? renderHighlightedText(v.text, searchTerm) : v.text}
-                                  </span>
-                                )}
+                                <span className={`verse-text ${isEnglishVersion(version) ? 'english-verse' : ''}`} onDoubleClick={isEnglishVersion(version) ? (e) => handleVerseDoubleClick(e, v, version) : undefined} style={isEnglishVersion(version) ? { cursor: 'pointer' } : {}}>{searchActive ? renderHighlightedText(v.text, searchTerm) : v.text}</span>
                               </Paragraph>
                             );
                           };
