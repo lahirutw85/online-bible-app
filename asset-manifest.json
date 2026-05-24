@@ -1,17 +1,18 @@
 {
   "files": {
     "main.css": "/online-bible-app/static/css/main.ab353e1e.css",
-    "main.js": "/online-bible-app/static/js/main.484da872.js",
+    "main.js": "/online-bible-app/static/js/main.cda86914.js",
     "static/js/653.10ef6563.chunk.js": "/online-bible-app/static/js/653.10ef6563.chunk.js",
     "static/js/129.a4fb8004.chunk.js": "/online-bible-app/static/js/129.a4fb8004.chunk.js",
     "static/js/453.93afb2f9.chunk.js": "/online-bible-app/static/js/453.93afb2f9.chunk.js",
+    "static/media/logo.jpg": "/online-bible-app/static/media/logo.3557ffc5a24d66906c05.jpg",
     "index.html": "/online-bible-app/index.html",
     "main.ab353e1e.css.map": "/online-bible-app/static/css/main.ab353e1e.css.map",
-    "main.484da872.js.map": "/online-bible-app/static/js/main.484da872.js.map",
+    "main.cda86914.js.map": "/online-bible-app/static/js/main.cda86914.js.map",
     "453.93afb2f9.chunk.js.map": "/online-bible-app/static/js/453.93afb2f9.chunk.js.map"
   },
   "entrypoints": [
     "static/css/main.ab353e1e.css",
-    "static/js/main.484da872.js"
+    "static/js/main.cda86914.js"
   ]
 }
