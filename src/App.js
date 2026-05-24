@@ -42,10 +42,37 @@ import {
 } from '@ant-design/icons';
 import booksData from './data/books.json';
 import booksDataEn from './data/books_en.json';
-import booksDataEs from './data/books_es.json';
-import booksDataFr from './data/books_fr.json';
-import booksDataDe from './data/books_de.json';
 import logo from './logo.jpg';
+
+const localToHelloAoMap = {
+  "Gen": "GEN", "Exod": "EXO", "Lev": "LEV", "Num": "NUM", "Deut": "DEU",
+  "Josh": "JOS", "Judg": "JDG", "Ruth": "RUT", "1Sam": "1SA", "2Sam": "2SA",
+  "1Kgs": "1KI", "2Kgs": "2KI", "1Chr": "1CH", "2Chr": "2CH", "Ezra": "EZR",
+  "Neh": "NEH", "Esth": "EST", "Job": "JOB", "Ps": "PSA", "Prov": "PRO",
+  "Eccl": "ECC", "Song": "SNG", "Isa": "ISA", "Jer": "JER", "Lam": "LAM",
+  "Ezek": "EZK", "Dan": "DAN", "Hos": "HOS", "Joel": "JOL", "Amos": "AMO",
+  "Obad": "OBA", "Jonah": "JON", "Mic": "MIC", "Nah": "NAM", "Hab": "HAB",
+  "Zeph": "ZEP", "Hag": "HAG", "Zech": "ZEC", "Mal": "MAL", "Matt": "MAT",
+  "Mark": "MRK", "Luke": "LUK", "John": "JHN", "Acts": "ACT", "Rom": "ROM",
+  "1Cor": "1CO", "2Cor": "2CO", "Gal": "GAL", "Eph": "EPH", "Phil": "PHP",
+  "Col": "COL", "1Thess": "1TH", "2Thess": "2TH", "1Tim": "1TI", "2Tim": "2TI",
+  "Titus": "TIT", "Phlm": "PHM", "Heb": "HEB", "Jas": "JAS", "1Pet": "1PE",
+  "2Pet": "2PE", "1John": "1JN", "2John": "2JN", "3John": "3JN", "Jude": "JUD",
+  "Rev": "REV"
+};
+
+const bookChaptersMap = {
+  "Gen": 50, "Exod": 40, "Lev": 27, "Num": 36, "Deut": 34, "Josh": 24, "Judg": 21, "Ruth": 4,
+  "1Sam": 31, "2Sam": 24, "1Kgs": 22, "2Kgs": 25, "1Chr": 29, "2Chr": 36, "Ezra": 10, "Neh": 13,
+  "Esth": 10, "Job": 42, "Ps": 150, "Prov": 31, "Eccl": 12, "Song": 8, "Isa": 66, "Jer": 52,
+  "Lam": 5, "Ezek": 48, "Dan": 12, "Hos": 14, "Joel": 3, "Amos": 9, "Obad": 1, "Jonah": 4,
+  "Mic": 7, "Nah": 3, "Hab": 3, "Zeph": 3, "Hag": 2, "Zech": 14, "Mal": 4, "Matt": 28,
+  "Mark": 16, "Luke": 24, "John": 21, "Acts": 28, "Rom": 16, "1Cor": 16, "2Cor": 13, "Gal": 6,
+  "Eph": 6, "Phil": 4, "Col": 4, "1Thess": 5, "2Thess": 3, "1Tim": 6, "2Tim": 4, "Titus": 3,
+  "Phlm": 1, "Heb": 13, "Jas": 5, "1Pet": 5, "2Pet": 3, "1John": 5, "2John": 1, "3John": 1,
+  "Jude": 1, "Rev": 22, "Tob": 14, "Jdt": 16, "Wis": 19, "Sir": 51, "Bar": 6, "1Macc": 16, "2Macc": 15
+};
+
 
 const { Header, Sider, Content } = Layout;
 const { Title, Text, Paragraph } = Typography;
@@ -53,15 +80,22 @@ const { Title, Text, Paragraph } = Typography;
 const versionsList = [
   { value: "ROV", label: "පැරණි සංශෝධිත (Sinhala)" },
   { value: "2018", label: "2018 නව සංශෝධිත (Sinhala)" },
+  { value: "BSB", label: "Berean Study Bible (English)" },
   { value: "KJV", label: "King James Version (English)" },
   { value: "ASV", label: "American Standard Version (English)" },
-  { value: "BBE", label: "Bible in Basic English (English)" },
-  { value: "SpaRV", label: "Reina-Valera 1909 (Spanish)" },
-  { value: "FreBBB", label: "Bovet Bonnet 1900 (French)" },
-  { value: "GerBoLut", label: "Luther 1545 (German)" }
+  { value: "BBE", label: "Bible in Basic English (English)" }
 ];
 
 const antIcon = <LoadingOutlined style={{ fontSize: 32 }} spin />;
+
+// OT books (Genesis to Malachi) - use Hebrew; NT books (Matthew to Revelation) - use Greek
+const ntBooks = new Set([
+  "Matt", "Mark", "Luke", "John", "Acts", "Rom", "1Cor", "2Cor", "Gal", "Eph",
+  "Phil", "Col", "1Thess", "2Thess", "1Tim", "2Tim", "Titus", "Phlm", "Heb",
+  "Jas", "1Pet", "2Pet", "1John", "2John", "3John", "Jude", "Rev"
+]);
+
+const isNTBook = (bookCode) => ntBooks.has(bookCode);
 
 const paletteColors = [
   { name: 'රතු (Red)', hsl: 'hsla(0, 100%, 75%, 0.3)' },
@@ -181,6 +215,16 @@ export default function App() {
   const [compareVersion, setCompareVersion] = useState("KJV");
   const [compareBibleData, setCompareBibleData] = useState([]);
   const [compareLoading, setCompareLoading] = useState(false);
+
+  // Full loading states for dynamic HelloAO API
+  const [isFullLoaded, setIsFullLoaded] = useState(false);
+  const [compareFullLoaded, setCompareFullLoaded] = useState(false);
+
+  // BSB interlinear: Greek/Hebrew original text data
+  const [bsbOriginalData, setBsbOriginalData] = useState({});
+  const [bsbFootnotes, setBsbFootnotes] = useState([]);
+  const [bsbOriginalLoading, setBsbOriginalLoading] = useState(false);
+  const [searchLoading, setSearchLoading] = useState(false);
   
   // Theme state
   const [theme, setTheme] = useState(() => localStorage.getItem("bible-theme") || "light");
@@ -266,100 +310,222 @@ export default function App() {
     }
   }, [googleScriptUrl, syncId, syncBookmarks]);
 
-  // Lazy load Bible data when version changes
+  // Reset isFullLoaded when version changes to an API version
   useEffect(() => {
-    setLoading(true);
-    let dataPromise;
-    switch (version) {
-      case '2018':
-        dataPromise = import('./data/sinnrv2018.json');
-        break;
-      case 'KJV':
-        dataPromise = import('./data/kjv.json');
-        break;
-      case 'ASV':
-        dataPromise = import('./data/asv.json');
-        break;
-      case 'BBE':
-        dataPromise = import('./data/bbe.json');
-        break;
-      case 'SpaRV':
-        dataPromise = import('./data/sparv.json');
-        break;
-      case 'FreBBB':
-        dataPromise = import('./data/frebbb.json');
-        break;
-      case 'GerBoLut':
-        dataPromise = import('./data/gerbolut.json');
-        break;
-      default:
-        dataPromise = import('./data/sirov.json');
+    const apiVersions = { "KJV": "eng_kjv", "ASV": "eng_asv", "BBE": "eng_bbe", "BSB": "BSB" };
+    if (apiVersions[version]) {
+      setIsFullLoaded(false);
     }
-
-    dataPromise
-      .then((module) => {
-        const mapped = module.default.map(v => ({
-          book: v.b,
-          chapter: v.c,
-          verse: v.v,
-          text: v.t
-        }));
-        setBibleData(mapped);
-        setLoading(false);
-      })
-      .catch((err) => {
-        console.error("Failed to load Bible version:", err);
-        setLoading(false);
-      });
   }, [version]);
 
-  // Lazy load Compare Bible data when compareVersion or compareMode changes
+  // Reset compareFullLoaded when compareVersion changes to an API version
+  useEffect(() => {
+    const apiVersions = { "KJV": "eng_kjv", "ASV": "eng_asv", "BBE": "eng_bbe", "BSB": "BSB" };
+    if (apiVersions[compareVersion]) {
+      setCompareFullLoaded(false);
+    }
+  }, [compareVersion]);
+
+  // Lazy load Bible data when version, selectedBook, or selectedChapter changes
+  useEffect(() => {
+    const apiVersions = { "KJV": "eng_kjv", "ASV": "eng_asv", "BBE": "eng_bbe", "BSB": "BSB" };
+    
+    if (apiVersions[version]) {
+      if (isFullLoaded) return;
+      setLoading(true);
+      const helloAoId = apiVersions[version];
+      const helloAoBookId = localToHelloAoMap[selectedBook] || selectedBook;
+      const url = `https://bible.helloao.org/api/${helloAoId}/${helloAoBookId}/${selectedChapter}.json`;
+      
+      fetch(url)
+        .then(res => {
+          if (!res.ok) throw new Error("Failed to fetch chapter");
+          return res.json();
+        })
+        .then(data => {
+          const flat = [];
+          const ch = data.chapter;
+          if (ch && Array.isArray(ch.content)) {
+            ch.content.forEach(item => {
+              if (item.type === 'verse') {
+                const verseNum = item.number || item.verse;
+                const text = item.content
+                  .filter(part => typeof part === 'string')
+                  .join(' ');
+                flat.push({
+                  book: selectedBook,
+                  chapter: selectedChapter,
+                  verse: typeof verseNum === 'string' ? parseInt(verseNum) : verseNum,
+                  text: text
+                });
+              }
+            });
+          }
+          setBibleData(flat);
+          setLoading(false);
+        })
+        .catch(err => {
+          console.error("API Fetch error:", err);
+          setLoading(false);
+        });
+    } else {
+      setLoading(true);
+      let dataPromise = version === '2018' ? import('./data/sinnrv2018.json') : import('./data/sirov.json');
+      dataPromise
+        .then((module) => {
+          const mapped = module.default.map(v => ({
+            book: v.b,
+            chapter: v.c,
+            verse: v.v,
+            text: v.t
+          }));
+          setBibleData(mapped);
+          setIsFullLoaded(true);
+          setLoading(false);
+        })
+        .catch((err) => {
+          console.error("Failed to load local Bible:", err);
+          setLoading(false);
+        });
+    }
+  }, [version, selectedBook, selectedChapter, isFullLoaded]);
+
+  // Fetch Greek/Hebrew original text when BSB is the active version
+  useEffect(() => {
+    if (version !== 'BSB') return;
+    
+    const helloAoBookId = localToHelloAoMap[selectedBook] || selectedBook;
+    const isNT = isNTBook(selectedBook);
+    const originalTranslation = isNT ? 'grc_byz' : 'hbo_wlc';
+    const cacheKey = `${originalTranslation}_${helloAoBookId}_${selectedChapter}`;
+    
+    // Check cache
+    if (bsbOriginalData[cacheKey]) return;
+    
+    setBsbOriginalLoading(true);
+    const url = `https://bible.helloao.org/api/${originalTranslation}/${helloAoBookId}/${selectedChapter}.json`;
+    
+    fetch(url)
+      .then(res => {
+        if (!res.ok) throw new Error('Failed to fetch original text');
+        return res.json();
+      })
+      .then(data => {
+        const ch = data.chapter;
+        const verseMap = {};
+        if (ch && Array.isArray(ch.content)) {
+          ch.content.forEach(item => {
+            if (item.type === 'verse') {
+              const verseNum = item.number || item.verse;
+              const text = item.content
+                .filter(part => typeof part === 'string')
+                .join(' ');
+              verseMap[verseNum] = text;
+            }
+          });
+        }
+        setBsbOriginalData(prev => ({ ...prev, [cacheKey]: verseMap }));
+        setBsbOriginalLoading(false);
+      })
+      .catch(err => {
+        console.error('Failed to fetch original language text:', err);
+        setBsbOriginalLoading(false);
+      });
+  }, [version, selectedBook, selectedChapter, bsbOriginalData]);
+
+  // Fetch BSB footnotes for the current chapter
+  useEffect(() => {
+    if (version !== 'BSB') {
+      setBsbFootnotes([]);
+      return;
+    }
+    
+    const helloAoBookId = localToHelloAoMap[selectedBook] || selectedBook;
+    const url = `https://bible.helloao.org/api/BSB/${helloAoBookId}/${selectedChapter}.json`;
+    
+    fetch(url)
+      .then(res => {
+        if (!res.ok) throw new Error('Failed to fetch BSB footnotes');
+        return res.json();
+      })
+      .then(data => {
+        const ch = data.chapter;
+        if (ch && Array.isArray(ch.footnotes)) {
+          setBsbFootnotes(ch.footnotes);
+        } else {
+          setBsbFootnotes([]);
+        }
+      })
+      .catch(err => {
+        console.error('Failed to fetch BSB footnotes:', err);
+        setBsbFootnotes([]);
+      });
+  }, [version, selectedBook, selectedChapter]);
+
+  // Lazy load Compare Bible data when compareVersion, compareMode, selectedBook, or selectedChapter changes
   useEffect(() => {
     if (!compareMode) return;
-    setCompareLoading(true);
-    let dataPromise;
-    switch (compareVersion) {
-      case '2018':
-        dataPromise = import('./data/sinnrv2018.json');
-        break;
-      case 'KJV':
-        dataPromise = import('./data/kjv.json');
-        break;
-      case 'ASV':
-        dataPromise = import('./data/asv.json');
-        break;
-      case 'BBE':
-        dataPromise = import('./data/bbe.json');
-        break;
-      case 'SpaRV':
-        dataPromise = import('./data/sparv.json');
-        break;
-      case 'FreBBB':
-        dataPromise = import('./data/frebbb.json');
-        break;
-      case 'GerBoLut':
-        dataPromise = import('./data/gerbolut.json');
-        break;
-      default:
-        dataPromise = import('./data/sirov.json');
+    const apiVersions = { "KJV": "eng_kjv", "ASV": "eng_asv", "BBE": "eng_bbe", "BSB": "BSB" };
+    
+    if (apiVersions[compareVersion]) {
+      if (compareFullLoaded) return;
+      setCompareLoading(true);
+      const helloAoId = apiVersions[compareVersion];
+      const helloAoBookId = localToHelloAoMap[selectedBook] || selectedBook;
+      const url = `https://bible.helloao.org/api/${helloAoId}/${helloAoBookId}/${selectedChapter}.json`;
+      
+      fetch(url)
+        .then(res => {
+          if (!res.ok) throw new Error("Failed to fetch chapter");
+          return res.json();
+        })
+        .then(data => {
+          const flat = [];
+          const ch = data.chapter;
+          if (ch && Array.isArray(ch.content)) {
+            ch.content.forEach(item => {
+              if (item.type === 'verse') {
+                const verseNum = item.number || item.verse;
+                const text = item.content
+                  .filter(part => typeof part === 'string')
+                  .join(' ');
+                flat.push({
+                  book: selectedBook,
+                  chapter: selectedChapter,
+                  verse: typeof verseNum === 'string' ? parseInt(verseNum) : verseNum,
+                  text: text
+                });
+              }
+            });
+          }
+          setCompareBibleData(flat);
+          setCompareLoading(false);
+        })
+        .catch(err => {
+          console.error("API Compare Fetch error:", err);
+          setCompareLoading(false);
+        });
+    } else {
+      setCompareLoading(true);
+      let dataPromise = compareVersion === '2018' ? import('./data/sinnrv2018.json') : import('./data/sirov.json');
+      dataPromise
+        .then((module) => {
+          const mapped = module.default.map(v => ({
+            book: v.b,
+            chapter: v.c,
+            verse: v.v,
+            text: v.t
+          }));
+          setCompareBibleData(mapped);
+          setCompareFullLoaded(true);
+          setCompareLoading(false);
+        })
+        .catch((err) => {
+          console.error("Failed to load local compare Bible:", err);
+          setCompareLoading(false);
+        });
     }
-
-    dataPromise
-      .then((module) => {
-        const mapped = module.default.map(v => ({
-          book: v.b,
-          chapter: v.c,
-          verse: v.v,
-          text: v.t
-        }));
-        setCompareBibleData(mapped);
-        setCompareLoading(false);
-      })
-      .catch((err) => {
-        console.error("Failed to load compare Bible version:", err);
-        setCompareLoading(false);
-      });
-  }, [compareVersion, compareMode]);
+  }, [compareVersion, compareMode, selectedBook, selectedChapter, compareFullLoaded]);
 
   // Get active books list based on active version language
   const activeBooks = useMemo(() => {
@@ -367,13 +533,8 @@ export default function App() {
       case 'KJV':
       case 'ASV':
       case 'BBE':
+      case 'BSB':
         return booksDataEn;
-      case 'SpaRV':
-        return booksDataEs;
-      case 'FreBBB':
-        return booksDataFr;
-      case 'GerBoLut':
-        return booksDataDe;
       default:
         return booksData;
     }
@@ -386,16 +547,8 @@ export default function App() {
       case 'KJV':
       case 'ASV':
       case 'BBE':
+      case 'BSB':
         bookSet = booksDataEn;
-        break;
-      case 'SpaRV':
-        bookSet = booksDataEs;
-        break;
-      case 'FreBBB':
-        bookSet = booksDataFr;
-        break;
-      case 'GerBoLut':
-        bookSet = booksDataDe;
         break;
       default:
         bookSet = booksData;
@@ -410,13 +563,8 @@ export default function App() {
       case 'KJV':
       case 'ASV':
       case 'BBE':
+      case 'BSB':
         return 'en';
-      case 'SpaRV':
-        return 'es';
-      case 'FreBBB':
-        return 'fr';
-      case 'GerBoLut':
-        return 'de';
       default:
         return 'si';
     }
@@ -497,114 +645,6 @@ export default function App() {
         compareModeActive: "Disable Compare",
         compareModeInactive: "Compare Versions",
         compareVersionLabel: "Compare Version:"
-      },
-      es: {
-        subtitle: "Santa Biblia",
-        index: "Índice de libros",
-        bookmarks: "Marcadores guardados",
-        syncKey: "ID de sincronización:",
-        settings: "Ajustes",
-        searchPlaceholder: "Buscar versículos...",
-        versionLabel: "Versión:",
-        searchLabel: "Buscar:",
-        searchScopeLabel: "Ámbito de búsqueda:",
-        allBooks: "Todos los libros",
-        thisBook: "Este libro",
-        previousChapter: "Capítulo anterior",
-        nextChapter: "Capítulo siguiente",
-        chapterLabel: "Capítulo",
-        loadingText: "Cargando datos de la Biblia. Por favor, espere...",
-        savedBookmarksTitle: "Marcadores guardados",
-        savedBookmarksDesc: "Aquí están tus versículos guardados y resaltados.",
-        readButton: "Leer",
-        noBookmarks: "Aún no se han guardado marcadores. Haz clic en un número de versículo para resaltarlo y guardarlo.",
-        searchResultTitle: "Consulta de búsqueda",
-        globalSearchScope: "Toda la Biblia",
-        bookSearchScope: "Dentro de este libro",
-        resultsCount: "Resultados",
-        clearSearchButton: "Limpiar búsqueda",
-        selectChapterLabel: "Seleccionar capítulo:",
-        highlightPopoverTitle: "Color de resaltado:",
-        clearHighlightButton: "Borrar resaltado",
-        noVersesForChapter: "No hay datos disponibles para este capítulo.",
-        searchNoResults: "No se encontraron versículos coincidentes.",
-        clearSearch: "Limpiar búsqueda",
-        searchLimitNotice: "Debido a los grandes resultados de búsqueda, solo se muestran los primeros 150 versículos.",
-        compareModeActive: "Desactivar comparación",
-        compareModeInactive: "Comparar versiones",
-        compareVersionLabel: "Comparar con:"
-      },
-      fr: {
-        subtitle: "Sainte Bible",
-        index: "Table des matières",
-        bookmarks: "Signets enregistrés",
-        syncKey: "ID de synchronisation:",
-        settings: "Paramètres",
-        searchPlaceholder: "Rechercher des versets...",
-        versionLabel: "Version:",
-        searchLabel: "Rechercher:",
-        searchScopeLabel: "Portée de la recherche:",
-        allBooks: "Tous les livres",
-        thisBook: "Ce livre",
-        previousChapter: "Chapitre précédent",
-        nextChapter: "Chapitre suivant",
-        chapterLabel: "Chapitre",
-        loadingText: "Chargement des données bibliques. Veuillez patienter...",
-        savedBookmarksTitle: "Signets enregistrés",
-        savedBookmarksDesc: "Voici vos versets enregistrés et mis en évidence.",
-        readButton: "Lire",
-        noBookmarks: "Aucun signet enregistré pour le moment. Cliquez sur un numéro de verset pour le surbriller.",
-        searchResultTitle: "Requête de recherche",
-        globalSearchScope: "Toute la Bible",
-        bookSearchScope: "Dans ce livre",
-        resultsCount: "Résultats",
-        clearSearchButton: "Effacer la recherche",
-        selectChapterLabel: "Sélectionnez le chapitre:",
-        highlightPopoverTitle: "Couleur de surbrillance:",
-        clearHighlightButton: "Effacer la surbrillance",
-        noVersesForChapter: "Aucune donnée disponible pour ce chapitre.",
-        searchNoResults: "Aucun verset correspondant trouvé.",
-        clearSearch: "Effacer la recherche",
-        searchLimitNotice: "En raison du grand nombre de résultats, seuls les 150 premiers versets sont affichés.",
-        compareModeActive: "Désactiver la comparaison",
-        compareModeInactive: "Comparer les versions",
-        compareVersionLabel: "Comparer avec:"
-      },
-      de: {
-        subtitle: "Heilige Bibel",
-        index: "Bücherverzeichnis",
-        bookmarks: "Gespeicherte Lesezeichen",
-        syncKey: "Synchronisations-ID:",
-        settings: "Einstellungen",
-        searchPlaceholder: "Verse suchen...",
-        versionLabel: "Version:",
-        searchLabel: "Suche:",
-        searchScopeLabel: "Suchbereich:",
-        allBooks: "Alle Bücher",
-        thisBook: "Dieses Buch",
-        previousChapter: "Vorheriges Kapitel",
-        nextChapter: "Nächstes Kapitel",
-        chapterLabel: "Kapitel",
-        loadingText: "Bibeldaten werden geladen. Bitte warten...",
-        savedBookmarksTitle: "Gespeicherte Lesezeichen",
-        savedBookmarksDesc: "Hier sind Ihre gespeicherten und markierten Verse.",
-        readButton: "Lesen",
-        noBookmarks: "Noch keine Lesezeichen gespeichert. Klicken Sie auf eine Versnummer, um sie zu markieren.",
-        searchResultTitle: "Suchanfrage",
-        globalSearchScope: "Ganze Bibel",
-        bookSearchScope: "In diesem Buch",
-        resultsCount: "Ergebnisse",
-        clearSearchButton: "Suche löschen",
-        selectChapterLabel: "Kapitel auswählen:",
-        highlightPopoverTitle: "Hervorhebungsfarbe:",
-        clearHighlightButton: "Hervorhebung löschen",
-        noVersesForChapter: "Keine Daten für dieses Kapitel verfügbar.",
-        searchNoResults: "Keine passenden Verse gefunden.",
-        clearSearch: "Suche löschen",
-        searchLimitNotice: "Aufgrund der großen Suchergebnisse werden nur die ersten 150 Verse angezeigt.",
-        compareModeActive: "Vergleich deaktivieren",
-        compareModeInactive: "Versionen vergleichen",
-        compareVersionLabel: "Vergleichen mit:"
       }
     };
     return strings[lang]?.[key] || strings.si[key] || key;
@@ -612,10 +652,14 @@ export default function App() {
 
   // Determine books available in the current translation
   const availableBooks = useMemo(() => {
+    const apiVersions = { "KJV": "eng_kjv", "ASV": "eng_asv", "BBE": "eng_bbe", "BSB": "BSB" };
+    if (apiVersions[version]) {
+      return activeBooks;
+    }
     if (bibleData.length === 0) return [];
     const bookCodes = new Set(bibleData.map(v => v.book));
     return activeBooks.filter(b => bookCodes.has(b.code));
-  }, [bibleData, activeBooks]);
+  }, [bibleData, activeBooks, version]);
 
   // Set default book if current selection is invalid
   useEffect(() => {
@@ -636,13 +680,8 @@ export default function App() {
         case 'KJV':
         case 'ASV':
         case 'BBE':
+        case 'BSB':
           return "Saved Bookmarks";
-        case 'SpaRV':
-          return "Marcadores guardados";
-        case 'FreBBB':
-          return "Signets enregistrés";
-        case 'GerBoLut':
-          return "Gespeicherte Lesezeichen";
         default:
           return "සුරැකි පද";
       }
@@ -653,12 +692,9 @@ export default function App() {
 
   // Get total chapters in the currently selected book
   const totalChapters = useMemo(() => {
-    if (selectedBook === "bookmarks" || bibleData.length === 0) return 0;
-    const chapters = bibleData
-      .filter(v => v.book === selectedBook)
-      .map(v => v.chapter);
-    return chapters.length > 0 ? Math.max(...chapters) : 0;
-  }, [bibleData, selectedBook]);
+    if (selectedBook === "bookmarks") return 0;
+    return bookChaptersMap[selectedBook] || 0;
+  }, [selectedBook]);
 
   // Reset chapter selection if it exceeds total chapters of new book
   useEffect(() => {
@@ -707,10 +743,195 @@ export default function App() {
     );
   };
 
+  // Get the original language text for a BSB verse
+  const getBsbOriginalText = useCallback((bookCode, chapter, verseNum) => {
+    const helloAoBookId = localToHelloAoMap[bookCode] || bookCode;
+    const isNT = isNTBook(bookCode);
+    const originalTranslation = isNT ? 'grc_byz' : 'hbo_wlc';
+    const cacheKey = `${originalTranslation}_${helloAoBookId}_${chapter}`;
+    const verseMap = bsbOriginalData[cacheKey];
+    if (!verseMap) return null;
+    return verseMap[verseNum] || null;
+  }, [bsbOriginalData]);
+
+  // Get footnotes for a BSB verse
+  const getBsbFootnotesForVerse = useCallback((verseNum) => {
+    return bsbFootnotes.filter(fn => fn.reference && fn.reference.verse === verseNum);
+  }, [bsbFootnotes]);
+
+  // Render interlinear tooltip content for BSB verses
+  const renderInterlinearTooltip = useCallback((v) => {
+    const isNT = isNTBook(v.book);
+    const langLabel = isNT ? 'Greek (Koine)' : 'Hebrew';
+    const langClass = isNT ? 'greek' : 'hebrew';
+    const originalText = getBsbOriginalText(v.book, v.chapter, v.verse);
+    const footnotes = getBsbFootnotesForVerse(v.verse);
+    const bookName = booksDataEn.find(b => b.code === v.book)?.name || v.book;
+    
+    return (
+      <div className="interlinear-tooltip">
+        <div className="tooltip-header">
+          <span className={`tooltip-lang-badge ${langClass}`}>
+            {isNT ? '📜' : '📖'} {langLabel}
+          </span>
+          <span className="tooltip-ref">{bookName} {v.chapter}:{v.verse}</span>
+        </div>
+        
+        {bsbOriginalLoading && !originalText ? (
+          <div className="loading-indicator">
+            <LoadingOutlined spin /> Loading original text...
+          </div>
+        ) : originalText ? (
+          <div className={`original-text ${langClass}`}>
+            {originalText}
+          </div>
+        ) : (
+          <div className="loading-indicator">
+            <InfoCircleOutlined /> Original text not available
+          </div>
+        )}
+        
+        {footnotes.length > 0 && (
+          <div>
+            {footnotes.map((fn, idx) => (
+              <div key={idx} className="tooltip-footnote">
+                <span className="fn-label">Note:</span>
+                {fn.text}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  }, [getBsbOriginalText, getBsbFootnotesForVerse, bsbOriginalLoading]);
+
+  // Render BSB verse text with hover tooltip
+  const renderBsbVerseText = useCallback((v, displayText) => {
+    return (
+      <Popover
+        content={renderInterlinearTooltip(v)}
+        trigger={isMobile ? 'click' : 'hover'}
+        placement="top"
+        overlayStyle={{ maxWidth: isMobile ? '90vw' : '440px' }}
+        mouseEnterDelay={0.3}
+      >
+        <span className="verse-text bsb-verse-hover">
+          {displayText}
+        </span>
+      </Popover>
+    );
+  }, [renderInterlinearTooltip, isMobile]);
+
   // Trigger search
-  const handleSearch = (val) => {
+  const handleSearch = async (val) => {
+    if (val.trim() === "") {
+      clearSearch();
+      return;
+    }
+
+    const apiVersions = { "KJV": "eng_kjv", "ASV": "eng_asv", "BBE": "eng_bbe", "BSB": "BSB" };
+
+    if (apiVersions[version] && !isFullLoaded) {
+      setSearchLoading(true);
+      try {
+        const res = await fetch(`https://bible.helloao.org/api/${apiVersions[version]}/complete.json`);
+        if (!res.ok) throw new Error("Failed to fetch full Bible JSON");
+        const data = await res.json();
+        
+        // Flatten complete.json
+        const flat = [];
+        const helloAoToLocalMap = {};
+        for (const [localCode, helloAoId] of Object.entries(localToHelloAoMap)) {
+          helloAoToLocalMap[helloAoId] = localCode;
+        }
+
+        if (data && Array.isArray(data.books)) {
+          data.books.forEach(b => {
+            const bookCode = helloAoToLocalMap[b.id] || b.id;
+            if (Array.isArray(b.chapters)) {
+              b.chapters.forEach(chObj => {
+                const ch = chObj.chapter;
+                if (ch && Array.isArray(ch.content)) {
+                  ch.content.forEach(item => {
+                    if (item.type === 'verse') {
+                      const verseNum = item.number || item.verse;
+                      const text = item.content
+                        .filter(part => typeof part === 'string')
+                        .join(' ');
+                      flat.push({
+                        book: bookCode,
+                        chapter: ch.number,
+                        verse: typeof verseNum === 'string' ? parseInt(verseNum) : verseNum,
+                        text: text
+                      });
+                    }
+                  });
+                }
+              });
+            }
+          });
+        }
+        setBibleData(flat);
+        setIsFullLoaded(true);
+      } catch (err) {
+        console.error("Failed to load search database:", err);
+        message.error("සෙවුම් දත්ත පූරණය අසාර්ථක විය. (Failed to load search database from API)");
+      } finally {
+        setSearchLoading(false);
+      }
+    }
+
+    // Load compared API version if needed
+    if (compareMode && apiVersions[compareVersion] && !compareFullLoaded) {
+      setSearchLoading(true);
+      try {
+        const res = await fetch(`https://bible.helloao.org/api/${apiVersions[compareVersion]}/complete.json`);
+        if (!res.ok) throw new Error("Failed to fetch full compare Bible JSON");
+        const data = await res.json();
+        
+        const flat = [];
+        const helloAoToLocalMap = {};
+        for (const [localCode, helloAoId] of Object.entries(localToHelloAoMap)) {
+          helloAoToLocalMap[helloAoId] = localCode;
+        }
+
+        if (data && Array.isArray(data.books)) {
+          data.books.forEach(b => {
+            const bookCode = helloAoToLocalMap[b.id] || b.id;
+            if (Array.isArray(b.chapters)) {
+              b.chapters.forEach(chObj => {
+                const ch = chObj.chapter;
+                if (ch && Array.isArray(ch.content)) {
+                  ch.content.forEach(item => {
+                    if (item.type === 'verse') {
+                      const verseNum = item.number || item.verse;
+                      const text = item.content
+                        .filter(part => typeof part === 'string')
+                        .join(' ');
+                      flat.push({
+                        book: bookCode,
+                        chapter: ch.number,
+                        verse: typeof verseNum === 'string' ? parseInt(verseNum) : verseNum,
+                        text: text
+                      });
+                    }
+                  });
+                }
+              });
+            }
+          });
+        }
+        setCompareBibleData(flat);
+        setCompareFullLoaded(true);
+      } catch (err) {
+        console.error("Failed to load compare search database:", err);
+      } finally {
+        setSearchLoading(false);
+      }
+    }
+
     setSearchTerm(val);
-    setSearchActive(val.trim() !== "");
+    setSearchActive(true);
   };
 
   // Reset Search
@@ -728,8 +949,7 @@ export default function App() {
       if (currentIdx > 0) {
         const prevBook = availableBooks[currentIdx - 1].code;
         setSelectedBook(prevBook);
-        const prevBookVerses = bibleData.filter(v => v.book === prevBook);
-        const prevTotalCh = Math.max(...prevBookVerses.map(v => v.chapter), 0);
+        const prevTotalCh = bookChaptersMap[prevBook] || 0;
         setSelectedChapter(prevTotalCh);
       }
     }
@@ -1122,7 +1342,7 @@ export default function App() {
 
           {/* Main Content Area */}
           <Content style={{ padding: isMobile ? '16px' : '32px', overflowY: 'auto', height: 'calc(100vh - 70px)' }}>
-            {loading || (compareMode && compareLoading) ? (
+            {loading || searchLoading || (compareMode && compareLoading) ? (
               <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', height: '60vh', gap: '16px' }}>
                 <Spin indicator={antIcon} />
                 <Text type="secondary" style={{ fontSize: '15px' }}>{t('loadingText')}</Text>
@@ -1372,9 +1592,13 @@ export default function App() {
                                           {searchActive ? `${bookName} ${v.chapter}:${v.verse}` : `${v.verse}`}
                                         </span>
                                       </Popover>
-                                      <span className="verse-text">
-                                        {searchActive ? renderHighlightedText(v.text, searchTerm) : v.text}
-                                      </span>
+                                      {version === 'BSB' && !searchActive ? (
+                                        renderBsbVerseText(v, v.text)
+                                      ) : (
+                                        <span className="verse-text">
+                                          {searchActive ? renderHighlightedText(v.text, searchTerm) : v.text}
+                                        </span>
+                                      )}
                                     </Paragraph>
                                   </div>
                                   <div style={{ flex: 1 }}>
@@ -1401,9 +1625,13 @@ export default function App() {
                                           {searchActive ? `${bookName} ${v.chapter}:${v.verse}` : `${v.verse}`}
                                         </span>
                                       </Popover>
-                                      <span className="verse-text">
-                                        {searchActive ? renderHighlightedText(v.text, searchTerm) : v.text}
-                                      </span>
+                                      {version === 'BSB' && !searchActive ? (
+                                        renderBsbVerseText(v, v.text)
+                                      ) : (
+                                        <span className="verse-text">
+                                          {searchActive ? renderHighlightedText(v.text, searchTerm) : v.text}
+                                        </span>
+                                      )}
                                     </Paragraph>
                                   </div>
                                   <div style={{ 
@@ -1431,9 +1659,13 @@ export default function App() {
                                     {searchActive ? `${bookName} ${v.chapter}:${v.verse}` : `${v.verse}`}
                                   </span>
                                 </Popover>
-                                <span className="verse-text">
-                                  {searchActive ? renderHighlightedText(v.text, searchTerm) : v.text}
-                                </span>
+                                {version === 'BSB' && !searchActive ? (
+                                  renderBsbVerseText(v, v.text)
+                                ) : (
+                                  <span className="verse-text">
+                                    {searchActive ? renderHighlightedText(v.text, searchTerm) : v.text}
+                                  </span>
+                                )}
                               </Paragraph>
                             );
                           };

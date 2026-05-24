@@ -303,3 +303,159 @@ body {
     padding: 0 !important;
   }
 }
+
+/* ===== BSB Interlinear Greek/Hebrew Tooltip ===== */
+.bsb-verse-hover {
+  cursor: help;
+  border-bottom: 1px dashed rgba(24, 144, 255, 0.3);
+  transition: all 0.2s ease;
+  padding-bottom: 1px;
+}
+
+.bsb-verse-hover:hover {
+  border-bottom-color: var(--accent-color);
+  background: rgba(24, 144, 255, 0.04);
+  border-radius: 4px;
+  padding: 2px 4px;
+  margin: -2px -4px;
+}
+
+.interlinear-tooltip {
+  max-width: 420px;
+  min-width: 280px;
+}
+
+.interlinear-tooltip .tooltip-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.interlinear-tooltip .tooltip-lang-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.interlinear-tooltip .tooltip-lang-badge.greek {
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.12), rgba(139, 92, 246, 0.12));
+  color: #6366f1;
+}
+
+.interlinear-tooltip .tooltip-lang-badge.hebrew {
+  background: linear-gradient(135deg, rgba(234, 179, 8, 0.12), rgba(245, 158, 11, 0.12));
+  color: #d97706;
+}
+
+[data-theme='dark'] .interlinear-tooltip .tooltip-lang-badge.greek {
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.25), rgba(139, 92, 246, 0.25));
+  color: #a5b4fc;
+}
+
+[data-theme='dark'] .interlinear-tooltip .tooltip-lang-badge.hebrew {
+  background: linear-gradient(135deg, rgba(234, 179, 8, 0.25), rgba(245, 158, 11, 0.25));
+  color: #fcd34d;
+}
+
+.interlinear-tooltip .tooltip-ref {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.interlinear-tooltip .original-text {
+  font-size: 20px;
+  line-height: 1.7;
+  padding: 14px 16px;
+  border-radius: 10px;
+  margin-bottom: 12px;
+  font-weight: 400;
+  letter-spacing: 0.02em;
+  word-spacing: 2px;
+}
+
+.interlinear-tooltip .original-text.greek {
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.06), rgba(139, 92, 246, 0.06));
+  border: 1px solid rgba(99, 102, 241, 0.1);
+  color: #4338ca;
+  font-family: 'Times New Roman', 'Palatino Linotype', serif;
+}
+
+.interlinear-tooltip .original-text.hebrew {
+  background: linear-gradient(135deg, rgba(234, 179, 8, 0.06), rgba(245, 158, 11, 0.06));
+  border: 1px solid rgba(234, 179, 8, 0.1);
+  color: #92400e;
+  font-family: 'Times New Roman', 'David', serif;
+  direction: rtl;
+  text-align: right;
+}
+
+[data-theme='dark'] .interlinear-tooltip .original-text.greek {
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.15), rgba(139, 92, 246, 0.15));
+  border-color: rgba(99, 102, 241, 0.25);
+  color: #c7d2fe;
+}
+
+[data-theme='dark'] .interlinear-tooltip .original-text.hebrew {
+  background: linear-gradient(135deg, rgba(234, 179, 8, 0.15), rgba(245, 158, 11, 0.15));
+  border-color: rgba(234, 179, 8, 0.25);
+  color: #fef3c7;
+}
+
+.interlinear-tooltip .tooltip-footnote {
+  font-size: 12px;
+  color: var(--text-secondary);
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: rgba(0,0,0,0.03);
+  margin-top: 8px;
+  line-height: 1.5;
+}
+
+[data-theme='dark'] .interlinear-tooltip .tooltip-footnote {
+  background: rgba(255,255,255,0.05);
+}
+
+.interlinear-tooltip .tooltip-footnote .fn-label {
+  font-weight: 600;
+  color: var(--accent-color);
+  margin-right: 6px;
+  font-size: 11px;
+  text-transform: uppercase;
+}
+
+.interlinear-tooltip .loading-indicator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 16px;
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+@media (max-width: 768px) {
+  .interlinear-tooltip {
+    max-width: 300px;
+    min-width: 240px;
+  }
+  
+  .interlinear-tooltip .original-text {
+    font-size: 17px;
+    padding: 10px 12px;
+  }
+  
+  .bsb-verse-hover {
+    border-bottom: none;
+    cursor: pointer;
+  }
+}
