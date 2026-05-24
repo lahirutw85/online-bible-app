@@ -14,6 +14,7 @@ import {
   MoonOutlined
 } from '@ant-design/icons';
 import booksData from './data/books.json';
+import logo from './logo.jpg';
 
 const { Header, Sider, Content } = Layout;
 const { Title, Text, Paragraph } = Typography;
@@ -211,9 +212,9 @@ export default function App() {
               onClick={() => setCollapsed(!collapsed)} 
               style={{ fontSize: '16px', width: 40, height: 40 }}
             />
-            <BookFilled style={{ fontSize: '24px', color: '#1890ff' }} />
+            <img src={logo} alt="Bibalaya Logo" style={{ height: '36px', width: '36px', borderRadius: '8px', objectFit: 'cover' }} />
             <Title level={4} style={{ margin: 0, fontWeight: 700, letterSpacing: '-0.02em', color: theme === 'dark' ? '#f8fafc' : '#2c3e50', display: 'flex', alignItems: 'center', gap: '6px' }}>
-              ශුද්ධ වූ බයිබලය <span style={{ fontSize: '12px', opacity: 0.5, fontWeight: 400, marginTop: '4px', color: theme === 'dark' ? '#94a3b8' : '#718096' }}>Sinhala Bible</span>
+              Bibalaya.com <span style={{ fontSize: '12px', opacity: 0.5, fontWeight: 400, marginTop: '4px', color: theme === 'dark' ? '#94a3b8' : '#718096' }}>ශුද්ධ වූ බයිබලය</span>
             </Title>
           </div>
 
