@@ -135,8 +135,8 @@ body {
 }
 
 .verse-text {
-  font-size: 17px !important;
-  line-height: 1.8 !important;
+  font-size: var(--verse-font-size, 17px) !important;
+  line-height: var(--verse-line-height, 1.8) !important;
   color: var(--text-primary) !important;
   font-weight: 400;
 }
@@ -288,8 +288,8 @@ body {
   }
   
   .verse-text {
-    font-size: 15px !important;
-    line-height: 1.7 !important;
+    font-size: calc(var(--verse-font-size, 17px) - 2px) !important;
+    line-height: var(--verse-line-height, 1.7) !important;
   }
   
   .verse-number {

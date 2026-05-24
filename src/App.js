@@ -42,6 +42,7 @@ import {
 } from '@ant-design/icons';
 import booksData from './data/books.json';
 import booksDataEn from './data/books_en.json';
+import booksDataTa from './data/books_ta.json';
 import logo from './logo.jpg';
 
 const localToHelloAoMap = {
@@ -80,6 +81,7 @@ const { Title, Text, Paragraph } = Typography;
 const versionsList = [
   { value: "ROV", label: "පැරණි සංශෝධිත (Sinhala)" },
   { value: "2018", label: "2018 නව සංශෝධිත (Sinhala)" },
+  { value: "TAMOVR", label: "பழைய மொழிபெயர்ப்பு (Tamil)" },
   { value: "BSB", label: "Berean Study Bible (English)" },
   { value: "KJV", label: "King James Version (English)" },
   { value: "ASV", label: "American Standard Version (English)" },
@@ -212,6 +214,19 @@ export default function App() {
   // Full loading states for dynamic HelloAO API
   const [isFullLoaded, setIsFullLoaded] = useState(false);
   const [compareFullLoaded, setCompareFullLoaded] = useState(false);
+
+  // Font size state
+  const [fontSize, setFontSize] = useState(() => parseInt(localStorage.getItem("bible-font-size")) || 16);
+
+  const handleFontSizeChange = useCallback((action) => {
+    setFontSize(prev => {
+      let newSize = prev;
+      if (action === 'increase' && prev < 32) newSize = prev + 2;
+      if (action === 'decrease' && prev > 12) newSize = prev - 2;
+      localStorage.setItem("bible-font-size", newSize);
+      return newSize;
+    });
+  }, []);
 
   // BSB interlinear: Greek/Hebrew original text data
   const [searchLoading, setSearchLoading] = useState(false);
@@ -373,7 +388,14 @@ export default function App() {
         });
     } else {
       setLoading(true);
-      let dataPromise = version === '2018' ? import('./data/sinnrv2018.json') : import('./data/sirov.json');
+      let dataPromise;
+      if (version === '2018') {
+        dataPromise = import('./data/sinnrv2018.json');
+      } else if (version === 'TAMOVR') {
+        dataPromise = import('./data/ta_movr.json');
+      } else {
+        dataPromise = import('./data/sirov.json');
+      }
       dataPromise
         .then((module) => {
           const mapped = module.default.map(v => ({
@@ -749,7 +771,14 @@ export default function App() {
         });
     } else {
       setCompareLoading(true);
-      let dataPromise = compareVersion === '2018' ? import('./data/sinnrv2018.json') : import('./data/sirov.json');
+      let dataPromise;
+      if (compareVersion === '2018') {
+        dataPromise = import('./data/sinnrv2018.json');
+      } else if (compareVersion === 'TAMOVR') {
+        dataPromise = import('./data/ta_movr.json');
+      } else {
+        dataPromise = import('./data/sirov.json');
+      }
       dataPromise
         .then((module) => {
           const mapped = module.default.map(v => ({
@@ -777,6 +806,8 @@ export default function App() {
       case 'BBE':
       case 'BSB':
         return booksDataEn;
+      case 'TAMOVR':
+        return booksDataTa;
       default:
         return booksData;
     }
@@ -807,6 +838,8 @@ export default function App() {
       case 'BBE':
       case 'BSB':
         return 'en';
+      case 'TAMOVR':
+        return 'ta';
       default:
         return 'si';
     }
@@ -851,6 +884,42 @@ export default function App() {
         compareModeActive: "සංසන්දනය අක්‍රිය කරන්න",
         compareModeInactive: "සංසන්දනය (Compare)",
         compareVersionLabel: "සංසන්දනය කරන පරිවර්තනය (Compare Version):"
+      },
+      ta: {
+        subtitle: "பரிசுத்த வேதாகமம்",
+        index: "பொருளடக்கம்",
+        bookmarks: "குறிக்கப்பட்டவை (Bookmarks)",
+        syncKey: "ஒத்திசைவு குறியீடு (Sync ID):",
+        settings: "அமைப்புகள்",
+        searchPlaceholder: "தேடு (Search)...",
+        versionLabel: "பதிப்பு (Version):",
+        searchLabel: "தேடல் (Search):",
+        searchScopeLabel: "தேடல் எல்லை (Search Scope):",
+        allBooks: "எல்லா புத்தகங்களும்",
+        thisBook: "இந்தப் புத்தகம்",
+        previousChapter: "முந்தைய அதிகாரம்",
+        nextChapter: "அடுத்த அதிகாரம்",
+        chapterLabel: "அதிகாரம்",
+        loadingText: "வேதாகமம் ஏற்றப்படுகிறது. காத்திருக்கவும்...",
+        savedBookmarksTitle: "சேமிக்கப்பட்ட குறிப்புகள் (Bookmarks)",
+        savedBookmarksDesc: "நீங்கள் தனிப்படுத்திய வசனங்கள் இங்கே சேமிக்கப்பட்டுள்ளன.",
+        readButton: "வாசி",
+        noBookmarks: "இன்னும் வசனங்கள் எதுவும் குறிக்கப்படவில்லை. வாசிக்கும்போது வசன எண்ணைக் கிளிக் செய்து வண்ணம் தீட்டவும்.",
+        searchResultTitle: "தேடல் முடிவு",
+        globalSearchScope: "முழு வேதாகமமும்",
+        bookSearchScope: "இந்தப் புத்தகத்திற்குள்",
+        resultsCount: "முடிவுகள்",
+        clearSearchButton: "தேடலை நீக்கு",
+        selectChapterLabel: "அதிகாரத்தைத் தேர்ந்தெடு (Select Chapter):",
+        highlightPopoverTitle: "வண்ணம் தீட்டு (Highlight Color):",
+        clearHighlightButton: "வண்ணத்தை நீக்கு (Clear)",
+        noVersesForChapter: "இந்த அதிகாரத்திற்கு வசனங்கள் இல்லை.",
+        searchNoResults: "பொருந்தும் வசனங்கள் எதுவும் இல்லை.",
+        clearSearch: "தேடலை நீக்கு",
+        searchLimitNotice: "பெரிய தேடல் முடிவுகள் என்பதால், முதல் 150 வசனங்கள் மட்டுமே காட்டப்படுகின்றன.",
+        compareModeActive: "ஒப்பீட்டை முடக்கு",
+        compareModeInactive: "வசனங்களை ஒப்பிடு (Compare)",
+        compareVersionLabel: "ஒப்பீட்டு பதிப்பு (Compare Version):"
       },
       en: {
         subtitle: "Holy Bible",
@@ -1380,7 +1449,7 @@ export default function App() {
         }
       }}
     >
-      <Layout style={{ minHeight: '100vh' }}>
+      <Layout style={{ minHeight: '100vh', '--verse-font-size': `${fontSize}px`, '--verse-line-height': 1.8 }}>
         {/* Responsive Header */}
         <Header style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, width: '100%' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '8px' : '12px' }}>
@@ -1434,6 +1503,26 @@ export default function App() {
                 )}
               </Space>
             )}
+
+            {/* Font Size Adjusters */}
+            <Space style={{ gap: 0 }} className="font-size-adjuster">
+              <Tooltip title={getLanguage() === 'si' ? "අකුරු විශාලත්වය වැඩි කරන්න" : getLanguage() === 'ta' ? "எழுத்துரு அளவை அதிகரிக்கவும்" : "Increase Font Size"}>
+                <Button 
+                  onClick={() => handleFontSizeChange('increase')}
+                  style={{ fontWeight: 'bold', borderTopRightRadius: 0, borderBottomRightRadius: 0, borderRight: 'none' }}
+                >
+                  A+
+                </Button>
+              </Tooltip>
+              <Tooltip title={getLanguage() === 'si' ? "අකුරු විශාලත්වය අඩු කරන්න" : getLanguage() === 'ta' ? "எழுத்துரு அளவை குறைக்கக்கவும்" : "Decrease Font Size"}>
+                <Button 
+                  onClick={() => handleFontSizeChange('decrease')}
+                  style={{ fontWeight: 'bold', borderTopLeftRadius: 0, borderBottomLeftRadius: 0 }}
+                >
+                  A-
+                </Button>
+              </Tooltip>
+            </Space>
 
             {/* Theme Toggle Button */}
             <Tooltip title={theme === 'dark' ? "Light Mode" : "Dark Mode"}>
