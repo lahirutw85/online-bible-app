@@ -63,6 +63,7 @@ export default function VerseCard({
   compareMode,
   compareBibleData,
   isMobile,
+  theme,
   handleAddBookmark,
   handleRemoveBookmark,
   handleVerseDoubleClick,
@@ -103,8 +104,20 @@ export default function VerseCard({
   // Find if this verse has a saved bookmark/highlight
   const hl = bookmarks.find(b => b.book === v.book && b.chapter === v.chapter && b.verse === v.verse);
   
-  // Custom container background styling based on active highlighted color state
-  const cardStyle = hl ? { background: hl.color, borderLeft: '4px solid #1890ff' } : {};
+  // Clean card borders styling, using a solid left border colored to match the highlight selection
+  const cardStyle = hl ? { 
+    borderLeft: `4px solid ${hl.color.replace('0.3', '1').replace('0.35', '1')}` 
+  } : {};
+
+  // Custom inline background text highlight styling (highlighter pen effect)
+  const highlightStyle = hl ? {
+    backgroundColor: hl.color,
+    padding: '3px 8px',
+    borderRadius: '4px',
+    boxDecorationBreak: 'clone',
+    WebkitBoxDecorationBreak: 'clone',
+    display: 'inline'
+  } : {};
 
   // Resolve corresponding verse text from the compared translation
   let compareVerse = null;
@@ -167,31 +180,33 @@ export default function VerseCard({
         <div style={{ display: 'flex', gap: '24px' }}>
           {/* Left Column (Primary Translation) */}
           <div style={{ flex: 1, borderRight: '1px solid var(--border-color)', paddingRight: '16px' }}>
-            <Paragraph style={{ margin: 0, display: 'flex', alignItems: 'flex-start' }}>
-              <Popover content={popoverContent} trigger="click" placement="bottomLeft">
-                <span className="verse-number" style={{ cursor: 'pointer' }}>
-                  {searchActive ? `${bookName} ${v.chapter}:${v.verse}` : `${v.verse}`}
+            <Paragraph style={{ margin: 0, display: 'block', lineHeight: hl ? '2.2' : 'var(--verse-line-height, 1.8)' }}>
+              <span style={highlightStyle}>
+                <Popover content={popoverContent} trigger="click" placement="bottomLeft">
+                  <span className="verse-number" style={{ cursor: 'pointer', display: 'inline-block', marginRight: '8px' }}>
+                    {searchActive ? `${bookName} ${v.chapter}:${v.verse}` : `${v.verse}`}
+                  </span>
+                </Popover>
+                <span 
+                  className={`verse-text ${isEnglishVersion(version) ? 'english-verse' : ''}`}
+                  onDoubleClick={isEnglishVersion(version) ? (e) => handleVerseDoubleClick(e, v, version) : undefined}
+                  style={isEnglishVersion(version) ? { cursor: 'pointer', display: 'inline' } : { display: 'inline' }}
+                >
+                  {searchActive ? renderHighlightedText(v.text, searchTerm) : v.text}
                 </span>
-              </Popover>
-              <span 
-                className={`verse-text ${isEnglishVersion(version) ? 'english-verse' : ''}`}
-                onDoubleClick={isEnglishVersion(version) ? (e) => handleVerseDoubleClick(e, v, version) : undefined}
-                style={isEnglishVersion(version) ? { cursor: 'pointer' } : {}}
-              >
-                {searchActive ? renderHighlightedText(v.text, searchTerm) : v.text}
               </span>
             </Paragraph>
           </div>
           {/* Right Column (Compared Translation) */}
           <div style={{ flex: 1 }}>
-            <Paragraph style={{ margin: 0, display: 'flex', alignItems: 'flex-start' }}>
-              <span className="verse-number" style={{ background: 'rgba(0,0,0,0.05)', color: 'var(--text-secondary)' }}>
+            <Paragraph style={{ margin: 0, display: 'block', lineHeight: 'var(--verse-line-height, 1.8)' }}>
+              <span className="verse-number" style={{ background: 'rgba(0,0,0,0.05)', color: 'var(--text-secondary)', display: 'inline-block', marginRight: '8px' }}>
                 {searchActive ? `${bookName} ${v.chapter}:${v.verse}` : `${v.verse}`}
               </span>
               <span 
                 className={`verse-text ${isEnglishVersion(compareVersion) ? 'english-verse' : ''}`}
                 onDoubleClick={isEnglishVersion(compareVersion) ? (e) => handleVerseDoubleClick(e, v, compareVersion) : undefined}
-                style={isEnglishVersion(compareVersion) ? { cursor: 'pointer' } : {}}
+                style={isEnglishVersion(compareVersion) ? { cursor: 'pointer', display: 'inline' } : { display: 'inline' }}
               >
                 {searchActive ? renderHighlightedText(compareText, searchTerm) : compareText}
               </span>
@@ -207,18 +222,20 @@ export default function VerseCard({
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
           {/* Row 1: Primary Translation */}
           <div>
-            <Paragraph style={{ margin: 0, display: 'flex', alignItems: 'flex-start' }}>
-              <Popover content={popoverContent} trigger="click" placement="bottomLeft">
-                <span className="verse-number" style={{ cursor: 'pointer' }}>
-                  {searchActive ? `${bookName} ${v.chapter}:${v.verse}` : `${v.verse}`}
+            <Paragraph style={{ margin: 0, display: 'block', lineHeight: hl ? '2.2' : 'var(--verse-line-height, 1.8)' }}>
+              <span style={highlightStyle}>
+                <Popover content={popoverContent} trigger="click" placement="bottomLeft">
+                  <span className="verse-number" style={{ cursor: 'pointer', display: 'inline-block', marginRight: '8px' }}>
+                    {searchActive ? `${bookName} ${v.chapter}:${v.verse}` : `${v.verse}`}
+                  </span>
+                </Popover>
+                <span 
+                  className={`verse-text ${isEnglishVersion(version) ? 'english-verse' : ''}`}
+                  onDoubleClick={isEnglishVersion(version) ? (e) => handleVerseDoubleClick(e, v, version) : undefined}
+                  style={isEnglishVersion(version) ? { cursor: 'pointer', display: 'inline' } : { display: 'inline' }}
+                >
+                  {searchActive ? renderHighlightedText(v.text, searchTerm) : v.text}
                 </span>
-              </Popover>
-              <span 
-                className={`verse-text ${isEnglishVersion(version) ? 'english-verse' : ''}`}
-                onDoubleClick={isEnglishVersion(version) ? (e) => handleVerseDoubleClick(e, v, version) : undefined}
-                style={isEnglishVersion(version) ? { cursor: 'pointer' } : {}}
-              >
-                {searchActive ? renderHighlightedText(v.text, searchTerm) : v.text}
               </span>
             </Paragraph>
           </div>
@@ -228,14 +245,14 @@ export default function VerseCard({
             borderTop: '1px dashed var(--border-color)',
             opacity: 0.85
           }}>
-            <Paragraph style={{ margin: 0, display: 'flex', alignItems: 'flex-start' }}>
-              <span className="verse-number" style={{ background: 'rgba(24, 144, 255, 0.08)', color: 'var(--accent-color)', fontSize: '10px', padding: '1px 5px' }}>
+            <Paragraph style={{ margin: 0, display: 'block', lineHeight: 'var(--verse-line-height, 1.8)' }}>
+              <span className="verse-number" style={{ background: 'rgba(24, 144, 255, 0.08)', color: 'var(--accent-color)', fontSize: '10px', padding: '1px 5px', display: 'inline-block', marginRight: '8px' }}>
                 {compareVersion}
               </span>
               <span 
                 className={`verse-text ${isEnglishVersion(compareVersion) ? 'english-verse' : ''}`}
                 onDoubleClick={isEnglishVersion(compareVersion) ? (e) => handleVerseDoubleClick(e, v, compareVersion) : undefined}
-                style={isEnglishVersion(compareVersion) ? { fontStyle: 'italic', opacity: 0.9, cursor: 'pointer' } : { fontStyle: 'italic', opacity: 0.9 }}
+                style={isEnglishVersion(compareVersion) ? { fontStyle: 'italic', opacity: 0.9, cursor: 'pointer', display: 'inline' } : { fontStyle: 'italic', opacity: 0.9, display: 'inline' }}
               >
                 {searchActive ? renderHighlightedText(compareText, searchTerm) : compareText}
               </span>
@@ -247,20 +264,22 @@ export default function VerseCard({
 
     // Path C: Standard single reading mode
     return (
-      <Paragraph style={{ margin: 0, display: 'flex', alignItems: 'flex-start' }}>
-        {/* Clickable verse number triggers the color highlighting popover */}
-        <Popover content={popoverContent} trigger="click" placement="bottomLeft">
-          <span className="verse-number" style={{ cursor: 'pointer' }}>
-            {searchActive ? `${bookName} ${v.chapter}:${v.verse}` : `${v.verse}`}
+      <Paragraph style={{ margin: 0, display: 'block', lineHeight: hl ? '2.2' : 'var(--verse-line-height, 1.8)' }}>
+        <span style={highlightStyle}>
+          {/* Clickable verse number triggers the color highlighting popover */}
+          <Popover content={popoverContent} trigger="click" placement="bottomLeft">
+            <span className="verse-number" style={{ cursor: 'pointer', display: 'inline-block', marginRight: '8px' }}>
+              {searchActive ? `${bookName} ${v.chapter}:${v.verse}` : `${v.verse}`}
+            </span>
+          </Popover>
+          {/* Text double-click triggers word study overlay (English only) */}
+          <span 
+            className={`verse-text ${isEnglishVersion(version) ? 'english-verse' : ''}`} 
+            onDoubleClick={isEnglishVersion(version) ? (e) => handleVerseDoubleClick(e, v, version) : undefined} 
+            style={isEnglishVersion(version) ? { cursor: 'pointer', display: 'inline' } : { display: 'inline' }}
+          >
+            {searchActive ? renderHighlightedText(v.text, searchTerm) : v.text}
           </span>
-        </Popover>
-        {/* Text double-click triggers word study overlay (English only) */}
-        <span 
-          className={`verse-text ${isEnglishVersion(version) ? 'english-verse' : ''}`} 
-          onDoubleClick={isEnglishVersion(version) ? (e) => handleVerseDoubleClick(e, v, version) : undefined} 
-          style={isEnglishVersion(version) ? { cursor: 'pointer' } : {}}
-        >
-          {searchActive ? renderHighlightedText(v.text, searchTerm) : v.text}
         </span>
       </Paragraph>
     );
