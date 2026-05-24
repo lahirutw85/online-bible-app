@@ -1,67 +1,72 @@
+/**
+ * @file App.js
+ * @description Online Bible Application (Bibalaya.com)
+ * A modern, performant, responsive React application featuring Sinhala, Tamil, and English translations.
+ * Fully refactored into a clean component-driven React architecture.
+ * Imports services and UI components from a structured features folder tree.
+ * 
+ * @author Antigravity pair-programming with User
+ * @version 1.4.0
+ */
+
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { 
   Layout, 
-  Menu, 
-  Select, 
-  Input, 
-  Card, 
   Typography, 
   Space, 
-  Radio, 
-  Badge, 
   Spin, 
   Button, 
-  Empty, 
-  Tooltip, 
   ConfigProvider, 
-  Popover, 
   Drawer, 
   Divider, 
   Collapse,
+  Input,
+  Tooltip,
+  Card,
+  Empty,
   message,
   theme as antdTheme 
 } from 'antd';
 import { 
-  BookOutlined, 
-  SearchOutlined, 
-  TranslationOutlined, 
-  MenuFoldOutlined, 
-  MenuUnfoldOutlined, 
-  ClearOutlined,
-  LoadingOutlined,
-  CompassOutlined,
-  SunOutlined,
-  MoonOutlined,
-  StarFilled,
-  SettingOutlined,
-  DeleteOutlined,
-  CloudSyncOutlined,
+  SettingOutlined, 
+  CloudSyncOutlined, 
+  LinkOutlined, 
+  CopyOutlined,
   InfoCircleOutlined,
-  LinkOutlined,
-  CopyOutlined
+  SearchOutlined,
+  ClearOutlined,
+  CompassOutlined,
+  LoadingOutlined
 } from '@ant-design/icons';
+
+// Import Static Book Data (Sinhala, English, and Tamil translations)
 import booksData from './data/books.json';
 import booksDataEn from './data/books_en.json';
 import booksDataTa from './data/books_ta.json';
-import logo from './logo.jpg';
 
-const localToHelloAoMap = {
-  "Gen": "GEN", "Exod": "EXO", "Lev": "LEV", "Num": "NUM", "Deut": "DEU",
-  "Josh": "JOS", "Judg": "JDG", "Ruth": "RUT", "1Sam": "1SA", "2Sam": "2SA",
-  "1Kgs": "1KI", "2Kgs": "2KI", "1Chr": "1CH", "2Chr": "2CH", "Ezra": "EZR",
-  "Neh": "NEH", "Esth": "EST", "Job": "JOB", "Ps": "PSA", "Prov": "PRO",
-  "Eccl": "ECC", "Song": "SNG", "Isa": "ISA", "Jer": "JER", "Lam": "LAM",
-  "Ezek": "EZK", "Dan": "DAN", "Hos": "HOS", "Joel": "JOL", "Amos": "AMO",
-  "Obad": "OBA", "Jonah": "JON", "Mic": "MIC", "Nah": "NAM", "Hab": "HAB",
-  "Zeph": "ZEP", "Hag": "HAG", "Zech": "ZEC", "Mal": "MAL", "Matt": "MAT",
-  "Mark": "MRK", "Luke": "LUK", "John": "JHN", "Acts": "ACT", "Rom": "ROM",
-  "1Cor": "1CO", "2Cor": "2CO", "Gal": "GAL", "Eph": "EPH", "Phil": "PHP",
-  "Col": "COL", "1Thess": "1TH", "2Thess": "2TH", "1Tim": "1TI", "2Tim": "2TI",
-  "Titus": "TIT", "Phlm": "PHM", "Heb": "HEB", "Jas": "JAS", "1Pet": "1PE",
-  "2Pet": "2PE", "1John": "1JN", "2John": "2JN", "3John": "3JN", "Jude": "JUD",
-  "Rev": "REV"
-};
+// Import Logo Asset from assets folder
+import logo from './assets/logo.jpg';
 
+// Import OOP Services & UI Components from features/bible entrypoint
+import {
+  BibleService,
+  LexiconService,
+  BookmarkService,
+  SyncService,
+  HeaderBar,
+  SiderContent,
+  LexiconTooltip,
+  VerseCard,
+  BookmarksView
+} from './features/bible';
+
+/* =========================================================================
+   SECTION 1: CONFIGURATION & CONSTANTS
+   ========================================================================= */
+
+/**
+ * Total chapters per book in the Bible.
+ */
 const bookChaptersMap = {
   "Gen": 50, "Exod": 40, "Lev": 27, "Num": 36, "Deut": 34, "Josh": 24, "Judg": 21, "Ruth": 4,
   "1Sam": 31, "2Sam": 24, "1Kgs": 22, "2Kgs": 25, "1Chr": 29, "2Chr": 36, "Ezra": 10, "Neh": 13,
@@ -74,10 +79,12 @@ const bookChaptersMap = {
   "Jude": 1, "Rev": 22, "Tob": 14, "Jdt": 16, "Wis": 19, "Sir": 51, "Bar": 6, "1Macc": 16, "2Macc": 15
 };
 
-
-const { Header, Sider, Content } = Layout;
+const { Sider, Content } = Layout;
 const { Title, Text, Paragraph } = Typography;
 
+/**
+ * List of supported translations.
+ */
 const versionsList = [
   { value: "ROV", label: "පැරණි සංශෝධිත (Sinhala)" },
   { value: "2018", label: "2018 නව සංශෝධිත (Sinhala)" },
@@ -88,33 +95,12 @@ const versionsList = [
   { value: "BBE", label: "Bible in Basic English (English)" }
 ];
 
+// Reusable spinner component using Ant Design's spin algorithm
 const antIcon = <LoadingOutlined style={{ fontSize: 32 }} spin />;
 
-
-
-const paletteColors = [
-  { name: 'රතු (Red)', hsl: 'hsla(0, 100%, 75%, 0.3)' },
-  { name: 'තැඹිලි (Orange)', hsl: 'hsla(24, 100%, 75%, 0.3)' },
-  { name: 'කහ (Amber)', hsl: 'hsla(45, 100%, 75%, 0.3)' },
-  { name: 'ලා කහ (Yellow)', hsl: 'hsla(60, 100%, 70%, 0.35)' },
-  { name: 'දෙහි (Lime)', hsl: 'hsla(80, 90%, 75%, 0.3)' },
-  { name: 'ලා කොළ (Light Green)', hsl: 'hsla(100, 90%, 75%, 0.3)' },
-  { name: 'කොළ (Green)', hsl: 'hsla(120, 80%, 75%, 0.3)' },
-  { name: 'මින්ට් (Mint)', hsl: 'hsla(150, 80%, 75%, 0.3)' },
-  { name: 'ලා නිල් (Cyan)', hsl: 'hsla(180, 80%, 75%, 0.3)' },
-  { name: 'නිල් (Sky)', hsl: 'hsla(200, 90%, 75%, 0.3)' },
-  { name: 'තද නිල් (Blue)', hsl: 'hsla(220, 90%, 75%, 0.3)' },
-  { name: 'ඉන්ඩිගෝ (Indigo)', hsl: 'hsla(240, 80%, 75%, 0.3)' },
-  { name: 'දම් (Purple)', hsl: 'hsla(260, 80%, 75%, 0.3)' },
-  { name: 'ලා දම් (Violet)', hsl: 'hsla(280, 80%, 75%, 0.3)' },
-  { name: 'රෝස (Magenta)', hsl: 'hsla(300, 80%, 75%, 0.3)' },
-  { name: 'ලා රෝස (Pink)', hsl: 'hsla(330, 90%, 75%, 0.3)' },
-  { name: 'තද රෝස (Rose)', hsl: 'hsla(345, 100%, 75%, 0.3)' },
-  { name: 'අළු (Grey)', hsl: 'hsla(210, 15%, 75%, 0.3)' },
-  { name: 'වැලි (Sand)', hsl: 'hsla(35, 30%, 75%, 0.3)' },
-  { name: 'දුඹුරු (Teal)', hsl: 'hsla(165, 80%, 75%, 0.3)' }
-];
-
+/**
+ * Deployment code template for Google Apps Script Web App.
+ */
 const appsScriptCode = `function doGet(e) {
   var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
   if (sheet.getLastRow() === 0) {
@@ -193,45 +179,51 @@ const appsScriptCode = `function doGet(e) {
     .setMimeType(ContentService.MimeType.JSON);
 }`;
 
+/* =========================================================================
+   SECTION 2: MAIN APP COMPONENT EXPORT
+   ========================================================================= */
+
 export default function App() {
+  
+  /* --- A. OOP Service Class Instantiations --- */
+  const bibleService = useMemo(() => new BibleService(), []);
+  const lexiconService = useMemo(() => new LexiconService(), []);
+  const bookmarkService = useMemo(() => new BookmarkService(), []);
+
+  /* --- B. Bible Content Data States --- */
   const [bibleData, setBibleData] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [version, setVersion] = useState("ROV"); // 'ROV' (Old Revised) is default
+  
+  /* --- C. Reading View & Navigation Context States --- */
+  const [version, setVersion] = useState("ROV");
   const [selectedBook, setSelectedBook] = useState("Gen");
   const [selectedChapter, setSelectedChapter] = useState(1);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [searchScope, setSearchScope] = useState("global"); // 'global' or 'book'
-  const [collapsed, setCollapsed] = useState(true);
-  const [searchActive, setSearchActive] = useState(false);
-  const [isMobile, setIsMobile] = useState(false);
   
-  // Compare mode states
+  /* --- D. Responsive Layout States --- */
+  const [collapsed, setCollapsed] = useState(true);
+  const [isMobile, setIsMobile] = useState(false);
+  const [theme, setTheme] = useState(() => localStorage.getItem("bible-theme") || "light");
+
+  /* --- E. Search States --- */
+  const [searchTerm, setSearchTerm] = useState("");
+  const [searchScope, setSearchScope] = useState("global");
+  const [searchActive, setSearchActive] = useState(false);
+  const [searchLoading, setSearchLoading] = useState(false);
+
+  /* --- F. Verse Comparison Mode States --- */
   const [compareMode, setCompareMode] = useState(false);
   const [compareVersion, setCompareVersion] = useState("KJV");
   const [compareBibleData, setCompareBibleData] = useState([]);
   const [compareLoading, setCompareLoading] = useState(false);
 
-  // Full loading states for dynamic HelloAO API
+  /* --- G. Performance / Full-Load API States --- */
   const [isFullLoaded, setIsFullLoaded] = useState(false);
   const [compareFullLoaded, setCompareFullLoaded] = useState(false);
 
-  // Font size state
+  /* --- H. Font Customization States --- */
   const [fontSize, setFontSize] = useState(() => parseInt(localStorage.getItem("bible-font-size")) || 16);
 
-  const handleFontSizeChange = useCallback((action) => {
-    setFontSize(prev => {
-      let newSize = prev;
-      if (action === 'increase' && prev < 32) newSize = prev + 2;
-      if (action === 'decrease' && prev > 12) newSize = prev - 2;
-      localStorage.setItem("bible-font-size", newSize);
-      return newSize;
-    });
-  }, []);
-
-  // BSB interlinear: Greek/Hebrew original text data
-  const [searchLoading, setSearchLoading] = useState(false);
-
-  // Double click word dictionary lookup state
+  /* --- I. Double-Click Lexicon Dictionary Overlay State --- */
   const [doubleClickWordInfo, setDoubleClickWordInfo] = useState({
     visible: false,
     x: 0,
@@ -243,11 +235,8 @@ export default function App() {
     error: null,
     verseStrongs: []
   });
-  
-  // Theme state
-  const [theme, setTheme] = useState(() => localStorage.getItem("bible-theme") || "light");
 
-  // Sync settings states
+  /* --- J. Synchronization & Bookmarking States --- */
   const [settingsVisible, setSettingsVisible] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [googleScriptUrl, setGoogleScriptUrl] = useState(() => localStorage.getItem("bible-script-url") || "");
@@ -259,21 +248,27 @@ export default function App() {
     return generated;
   });
 
-  // Bookmarks state (highlights)
-  const [bookmarks, setBookmarks] = useState(() => {
-    const saved = localStorage.getItem("bible-bookmarks");
-    return saved ? JSON.parse(saved) : [];
-  });
+  // Re-sync bookmarks list with BookmarkService instance
+  const [bookmarks, setBookmarks] = useState(() => bookmarkService.getBookmarks());
 
-  // Detect mobile viewport
+  // Instantiate Sync Service class dynamically mapped to credentials
+  const syncService = useMemo(() => new SyncService(googleScriptUrl, syncId), [googleScriptUrl, syncId]);
+
+  /* =========================================================================
+     SECTION 3: EFFECT HOOKS (LIFECYCLE & INITIAL SYNC)
+     ========================================================================= */
+
+  /**
+   * Effect: Handles dynamic window resize events to calculate responsiveness.
+   */
   useEffect(() => {
     const handleResize = () => {
       const mobile = window.innerWidth < 768;
       setIsMobile(mobile);
       if (mobile) {
-        setCollapsed(true); // default to closed drawer on mobile
+        setCollapsed(true);
       } else {
-        setCollapsed(false); // default to open sidebar on desktop
+        setCollapsed(false);
       }
     };
     handleResize();
@@ -281,13 +276,17 @@ export default function App() {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // Sync theme to root HTML element
+  /**
+   * Effect: Theme switching attribute selector.
+   */
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
     localStorage.setItem("bible-theme", theme);
   }, [theme]);
 
-  // Sync variables to localStorage
+  /**
+   * Effect: Sync credential persistence.
+   */
   useEffect(() => {
     localStorage.setItem("bible-script-url", googleScriptUrl);
   }, [googleScriptUrl]);
@@ -296,22 +295,20 @@ export default function App() {
     localStorage.setItem("bible-sync-id", syncId);
   }, [syncId]);
 
-  useEffect(() => {
-    localStorage.setItem("bible-bookmarks", JSON.stringify(bookmarks));
-  }, [bookmarks]);
-
-  // Sync bookmarks from Google Sheets on load
+  /**
+   * Core callback: Contacts Google Sheets API to pull bookmarks and updates state.
+   */
   const syncBookmarks = useCallback(async (url = googleScriptUrl, id = syncId) => {
     if (!url) return;
     setSyncing(true);
     try {
-      const res = await fetch(`${url}?action=get&syncId=${id}`);
-      const remoteBookmarks = await res.json();
+      syncService.configure(url, id);
+      const remoteBookmarks = await syncService.pullBookmarks();
       if (Array.isArray(remoteBookmarks)) {
+        localStorage.setItem("bible-bookmarks", JSON.stringify(remoteBookmarks));
+        bookmarkService.bookmarks = remoteBookmarks;
         setBookmarks(remoteBookmarks);
         message.success("සුරැකි පද සාර්ථකව සංසන්දනය කරන ලදී! (Sync complete)");
-      } else if (remoteBookmarks.error) {
-        message.error("සංසන්දන දෝෂය: " + remoteBookmarks.error);
       }
     } catch (err) {
       console.error("Failed to sync bookmarks:", err);
@@ -319,108 +316,211 @@ export default function App() {
     } finally {
       setSyncing(false);
     }
-  }, [googleScriptUrl, syncId]);
+  }, [googleScriptUrl, syncId, syncService, bookmarkService]);
 
-  // Run sync on startup if URL is configured
+  /**
+   * Effect: Fetch bookmarks on load.
+   */
   useEffect(() => {
     if (googleScriptUrl) {
       syncBookmarks(googleScriptUrl, syncId);
     }
   }, [googleScriptUrl, syncId, syncBookmarks]);
 
-  // Reset isFullLoaded when version changes to an API version
+  /**
+   * Effect: Resets search engine flag if the user switches version.
+   */
   useEffect(() => {
-    const apiVersions = { "KJV": "eng_kjv", "ASV": "eng_asv", "BBE": "eng_bbe", "BSB": "BSB" };
-    if (apiVersions[version]) {
+    if (bibleService.isApiVersion(version)) {
       setIsFullLoaded(false);
     }
-  }, [version]);
+  }, [version, bibleService]);
 
-  // Reset compareFullLoaded when compareVersion changes to an API version
   useEffect(() => {
-    const apiVersions = { "KJV": "eng_kjv", "ASV": "eng_asv", "BBE": "eng_bbe", "BSB": "BSB" };
-    if (apiVersions[compareVersion]) {
+    if (bibleService.isApiVersion(compareVersion)) {
       setCompareFullLoaded(false);
     }
-  }, [compareVersion]);
+  }, [compareVersion, bibleService]);
 
-  // Lazy load Bible data when version, selectedBook, or selectedChapter changes
+  /**
+   * Effect: Chapter Loader (Primary Bible).
+   */
   useEffect(() => {
-    const apiVersions = { "KJV": "eng_kjv", "ASV": "eng_asv", "BBE": "eng_bbe", "BSB": "BSB" };
-    
-    if (apiVersions[version]) {
-      if (isFullLoaded) return;
-      setLoading(true);
-      const helloAoId = apiVersions[version];
-      const helloAoBookId = localToHelloAoMap[selectedBook] || selectedBook;
-      const url = `https://bible.helloao.org/api/${helloAoId}/${helloAoBookId}/${selectedChapter}.json`;
-      
-      fetch(url)
-        .then(res => {
-          if (!res.ok) throw new Error("Failed to fetch chapter");
-          return res.json();
-        })
-        .then(data => {
-          const flat = [];
-          const ch = data.chapter;
-          if (ch && Array.isArray(ch.content)) {
-            ch.content.forEach(item => {
-              if (item.type === 'verse') {
-                const verseNum = item.number || item.verse;
-                const text = item.content
-                  .filter(part => typeof part === 'string')
-                  .join(' ');
-                flat.push({
-                  book: selectedBook,
-                  chapter: selectedChapter,
-                  verse: typeof verseNum === 'string' ? parseInt(verseNum) : verseNum,
-                  text: text
-                });
-              }
-            });
-          }
-          setBibleData(flat);
-          setLoading(false);
-        })
-        .catch(err => {
-          console.error("API Fetch error:", err);
-          setLoading(false);
-        });
-    } else {
-      setLoading(true);
-      let dataPromise;
-      if (version === '2018') {
-        dataPromise = import('./data/sinnrv2018.json');
-      } else if (version === 'TAMOVR') {
-        dataPromise = import('./data/ta_movr.json');
-      } else {
-        dataPromise = import('./data/sirov.json');
-      }
-      dataPromise
-        .then((module) => {
-          const mapped = module.default.map(v => ({
-            book: v.b,
-            chapter: v.c,
-            verse: v.v,
-            text: v.t
-          }));
-          setBibleData(mapped);
+    setLoading(true);
+    bibleService.fetchChapter(selectedBook, selectedChapter, version)
+      .then(data => {
+        setBibleData(data);
+        if (!bibleService.isApiVersion(version)) {
           setIsFullLoaded(true);
-          setLoading(false);
-        })
-        .catch((err) => {
-          console.error("Failed to load local Bible:", err);
-          setLoading(false);
-        });
-    }
-  }, [version, selectedBook, selectedChapter, isFullLoaded]);
+        }
+        setLoading(false);
+      })
+      .catch(err => {
+        console.error("API Fetch error:", err);
+        setLoading(false);
+      });
+  }, [version, selectedBook, selectedChapter, isFullLoaded, bibleService]);
 
-  // Check if a translation is English
-  const isEnglishVersion = useCallback((ver) => {
-    return ['BSB', 'KJV', 'ASV', 'BBE'].includes(ver);
+  /**
+   * Effect: Chapter Loader (Compare Mode Bible).
+   */
+  useEffect(() => {
+    if (!compareMode) return;
+    setCompareLoading(true);
+    bibleService.fetchChapter(selectedBook, selectedChapter, compareVersion)
+      .then(data => {
+        setCompareBibleData(data);
+        if (!bibleService.isApiVersion(compareVersion)) {
+          setCompareFullLoaded(true);
+        }
+        setCompareLoading(false);
+      })
+      .catch(err => {
+        console.error("API Compare Fetch error:", err);
+        setCompareLoading(false);
+      });
+  }, [compareVersion, compareMode, selectedBook, selectedChapter, compareFullLoaded, bibleService]);
+
+  /* =========================================================================
+     SECTION 4: CORE ACTION HANDLERS
+     ========================================================================= */
+
+  const handleFontSizeChange = useCallback((action) => {
+    setFontSize(prev => {
+      let newSize = prev;
+      if (action === 'increase' && prev < 32) newSize = prev + 2;
+      if (action === 'decrease' && prev > 12) newSize = prev - 2;
+      localStorage.setItem("bible-font-size", newSize);
+      return newSize;
+    });
   }, []);
 
-  // Fetch Strong's Definition
+  const isEnglishVersion = useCallback((ver) => {
+    return bibleService.isApiVersion(ver);
+  }, [bibleService]);
+
+  /**
+   * Action handler: Query search matching.
+   */
+  const handleSearch = async (val) => {
+    if (val.trim() === "") {
+      clearSearch();
+      return;
+    }
+
+    if (bibleService.isApiVersion(version) && !isFullLoaded) {
+      setSearchLoading(true);
+      try {
+        const flat = await bibleService.loadFullBibleForSearch(version);
+        setBibleData(flat);
+        setIsFullLoaded(true);
+      } catch (err) {
+        console.error("Failed to load search database:", err);
+        message.error("සෙවුම් දත්ත පූරණය අසාර්ථක විය. (Failed to load search database from API)");
+      } finally {
+        setSearchLoading(false);
+      }
+    }
+
+    if (compareMode && bibleService.isApiVersion(compareVersion) && !compareFullLoaded) {
+      setSearchLoading(true);
+      try {
+        const flat = await bibleService.loadFullBibleForSearch(compareVersion);
+        setCompareBibleData(flat);
+        setCompareFullLoaded(true);
+      } catch (err) {
+        console.error("Failed to load compare search database:", err);
+      } finally {
+        setSearchLoading(false);
+      }
+    }
+
+    setSearchTerm(val);
+    setSearchActive(true);
+  };
+
+  const clearSearch = () => {
+    setSearchTerm("");
+    setSearchActive(false);
+  };
+
+  const handlePrevChapter = () => {
+    if (selectedChapter > 1) {
+      setSelectedChapter(selectedChapter - 1);
+    } else {
+      const currentIdx = availableBooks.findIndex(b => b.code === selectedBook);
+      if (currentIdx > 0) {
+        const prevBook = availableBooks[currentIdx - 1].code;
+        setSelectedBook(prevBook);
+        const prevTotalCh = bookChaptersMap[prevBook] || 0;
+        setSelectedChapter(prevTotalCh);
+      }
+    }
+  };
+
+  const handleNextChapter = () => {
+    if (selectedChapter < totalChapters) {
+      setSelectedChapter(selectedChapter + 1);
+    } else {
+      const currentIdx = availableBooks.findIndex(b => b.code === selectedBook);
+      if (currentIdx < availableBooks.length - 1) {
+        const nextBook = availableBooks[currentIdx + 1].code;
+        setSelectedBook(nextBook);
+        setSelectedChapter(1);
+      }
+    }
+  };
+
+  /**
+   * Action handler: Adds bookmark. Updates storage using BookmarkService and pushes to API.
+   */
+  const handleAddBookmark = (v, color) => {
+    const updated = bookmarkService.addBookmark(v, color, version);
+    setBookmarks(updated);
+    message.success("පදය සුරකින ලදී! (Verse bookmarked)");
+    
+    syncService.pushAdd(v, color, version).catch(err => console.error("Sync add error:", err));
+  };
+
+  /**
+   * Action handler: Removes bookmark. Updates storage using BookmarkService and pushes delete command.
+   */
+  const handleRemoveBookmark = (book, chapter, verse) => {
+    const updated = bookmarkService.removeBookmark(book, chapter, verse);
+    setBookmarks(updated);
+    message.info("පදය ඉවත් කරන ලදී. (Bookmark removed)");
+    
+    syncService.pushDelete(book, chapter, verse).catch(err => console.error("Sync delete error:", err));
+  };
+
+  const handleJumpToVerse = (b) => {
+    setVersion(b.version);
+    setSelectedBook(b.book);
+    setSelectedChapter(b.chapter);
+    clearSearch();
+    
+    setTimeout(() => {
+      const el = document.getElementById(`v-${b.verse}`);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        el.classList.add('flash-effect');
+        setTimeout(() => el.classList.remove('flash-effect'), 2000);
+      }
+    }, 400);
+  };
+
+  const handleCopyText = (text) => {
+    navigator.clipboard.writeText(text);
+    message.success("පිටපත් කරන ලදී! (Copied)");
+  };
+
+  /* =========================================================================
+     SECTION 5: LEXICON WORD-LEVEL INTERLINEAR STUDY ENGINE
+     ========================================================================= */
+
+  /**
+   * Lexicon callback: Queries dictionary definitions using LexiconService.
+   */
   const fetchStrongsDefinition = useCallback((strongsNumber, verseStrongs = [], matchedKjvWord = '') => {
     setDoubleClickWordInfo(prev => ({
       ...prev,
@@ -428,23 +528,14 @@ export default function App() {
       error: null
     }));
 
-    fetch(`https://api.biblesupersearch.com/api/strongs?strongs=${strongsNumber}`)
-      .then(res => res.json())
-      .then(data => {
-        if (!data.results || data.results.length === 0) {
-          throw new Error(`No definition found for Strong's ${strongsNumber}`);
-        }
-        const def = data.results[0];
+    lexiconService.fetchStrongsDefinition(strongsNumber)
+      .then(strongsData => {
         setDoubleClickWordInfo(prev => ({
           ...prev,
           loading: false,
           strongsData: {
-            number: strongsNumber,
-            matchedWord: matchedKjvWord || prev.word,
-            rootWord: def.root_word,
-            transliteration: def.transliteration,
-            pronunciation: def.pronunciation,
-            entry: def.entry
+            ...strongsData,
+            matchedWord: matchedKjvWord || prev.word
           },
           verseStrongs: verseStrongs.length > 0 ? verseStrongs : prev.verseStrongs
         }));
@@ -458,55 +549,18 @@ export default function App() {
           verseStrongs: verseStrongs.length > 0 ? verseStrongs : prev.verseStrongs
         }));
       });
-  }, []);
+  }, [lexiconService]);
 
-  // Fetch KJV Strongs and map word
+  /**
+   * Lexicon callback: Fetches mapping and aligns clicked word using LexiconService.
+   */
   const fetchStrongsMappingAndLookup = useCallback((verseObj, cleanWord) => {
-    const helloAoBookId = localToHelloAoMap[verseObj.book] || verseObj.book;
-    const url = `https://api.biblesupersearch.com/api?bible=kjv_strongs&reference=${helloAoBookId}+${verseObj.chapter}:${verseObj.verse}&markup=raw`;
-
-    fetch(url)
-      .then(res => res.json())
-      .then(data => {
-        if (!data.results || data.results.length === 0) {
-          throw new Error("No interlinear data found for this verse.");
-        }
-        const verseData = data.results[0].verses.kjv_strongs;
-        const chapterData = verseData[verseObj.chapter];
-        if (!chapterData) throw new Error("Chapter data not found.");
-        const verseTextObj = chapterData[verseObj.verse];
-        if (!verseTextObj) throw new Error("Verse text not found.");
-        const text = verseTextObj.text;
-
-        // Parse words and associated Strong's numbers
-        const wordsWithStrongs = [];
-        const parts = text.split(/\s+/);
-        parts.forEach(part => {
-          const wordMatch = part.match(/^([A-Za-z]+(?:'[A-Za-z]+)?)/i);
-          if (wordMatch) {
-            const word = wordMatch[1].toLowerCase();
-            const strongsMatches = [...part.matchAll(/\{([GH][0-9]+)\}/gi)].map(m => m[1]);
-            wordsWithStrongs.push({ 
-              word: wordMatch[1],
-              cleanWord: word,
-              strongs: strongsMatches 
-            });
-          }
-        });
-
-        // Match clicked word
-        const searchWord = cleanWord.toLowerCase();
-        let match = wordsWithStrongs.find(w => w.cleanWord === searchWord);
+    const helloAoBookId = bibleService.getHelloAoBookCode(verseObj.book);
+    
+    lexiconService.fetchStrongsMapping(helloAoBookId, verseObj.chapter, verseObj.verse)
+      .then(wordsWithStrongs => {
+        const match = lexiconService.findBestMatch(wordsWithStrongs, cleanWord);
         
-        if (!match) {
-          match = wordsWithStrongs.find(w => 
-            w.cleanWord.startsWith(searchWord) || 
-            searchWord.startsWith(w.cleanWord) ||
-            w.cleanWord.includes(searchWord) ||
-            searchWord.includes(w.cleanWord)
-          );
-        }
-
         if (match && match.strongs && match.strongs.length > 0) {
           const strongsNumber = match.strongs[0];
           fetchStrongsDefinition(strongsNumber, wordsWithStrongs, match.word);
@@ -527,15 +581,16 @@ export default function App() {
           error: `Failed to load interlinear mapping: ${err.message}`
         }));
       });
-  }, [fetchStrongsDefinition]);
+  }, [bibleService, lexiconService, fetchStrongsDefinition]);
 
-  // Handle double-click event
+  /**
+   * Action handler: Double-click event capture.
+   */
   const handleVerseDoubleClick = useCallback((e, verseObj, activeVer) => {
     const selection = window.getSelection();
     const selectedText = selection.toString().trim();
     if (!selectedText) return;
 
-    // Clean punctuation
     const cleanWord = selectedText.replace(/[.,/#!$%^&*;:{}=\-_`~()?"']/g, "").trim();
     if (!cleanWord) return;
 
@@ -567,238 +622,10 @@ export default function App() {
     fetchStrongsMappingAndLookup(verseObj, cleanWord);
   }, [fetchStrongsMappingAndLookup]);
 
-  // Close double-click tooltip on outside click
-  useEffect(() => {
-    if (!doubleClickWordInfo.visible) return;
+  /* =========================================================================
+     SECTION 6: ORCHESTRATOR RENDER LOGIC
+     ========================================================================= */
 
-    const handleOutsideClick = (e) => {
-      const tooltipEl = document.getElementById('doubleclick-lexicon-tooltip');
-      if (tooltipEl && !tooltipEl.contains(e.target)) {
-        setDoubleClickWordInfo(prev => ({ ...prev, visible: false }));
-      }
-    };
-
-    document.addEventListener('mousedown', handleOutsideClick);
-    return () => {
-      document.removeEventListener('mousedown', handleOutsideClick);
-    };
-  }, [doubleClickWordInfo.visible]);
-
-  // Render double-click lexicon card
-  const renderDoubleClickTooltip = () => {
-    if (!doubleClickWordInfo.visible) return null;
-
-    const { x, y, strongsData, loading, error, verseStrongs } = doubleClickWordInfo;
-    const tooltipWidth = 360;
-    const tooltipHeight = 350;
-    
-    let left = x - tooltipWidth / 2;
-    let top = y + 10;
-
-    if (left + tooltipWidth > window.innerWidth) {
-      left = window.innerWidth - tooltipWidth - 20;
-    }
-    if (left < 10) {
-      left = 10;
-    }
-
-    if (y + tooltipHeight > document.documentElement.scrollHeight) {
-      top = y - tooltipHeight - 20;
-    }
-    if (top < 10) {
-      top = 10;
-    }
-
-    return (
-      <div 
-        id="doubleclick-lexicon-tooltip"
-        className="doubleclick-tooltip-card"
-        style={{
-          position: 'absolute',
-          left: `${left}px`,
-          top: `${top}px`,
-          zIndex: 10000,
-          width: `${tooltipWidth}px`
-        }}
-      >
-        <div className="tooltip-header">
-          <span className="tooltip-title">📖 Word Lexicon Study</span>
-          <Button 
-            type="text" 
-            size="small" 
-            icon={<span style={{ fontWeight: 'bold' }}>×</span>} 
-            onClick={() => setDoubleClickWordInfo(prev => ({ ...prev, visible: false }))} 
-            style={{ color: 'var(--text-secondary)' }}
-          />
-        </div>
-
-        <div className="tooltip-body">
-          {loading ? (
-            <div style={{ textAlign: 'center', padding: '24px 0' }}>
-              <Spin indicator={<LoadingOutlined style={{ fontSize: 24 }} spin />} />
-              <div style={{ marginTop: '8px', color: 'var(--text-secondary)' }}>Searching Strong's concordance...</div>
-            </div>
-          ) : error ? (
-            <div style={{ padding: '8px 0' }}>
-              <div style={{ color: 'var(--accent-color)', fontSize: '13px', marginBottom: '12px' }}>
-                {error}
-              </div>
-              {verseStrongs.length > 0 && (
-                <div className="verse-words-list">
-                  {verseStrongs.map((w, idx) => (
-                    <Button 
-                      key={idx} 
-                      size="small" 
-                      type="dashed"
-                      disabled={w.strongs.length === 0}
-                      onClick={() => w.strongs.length > 0 && fetchStrongsDefinition(w.strongs[0], verseStrongs, w.word)}
-                      style={{ margin: '4px', borderRadius: '4px' }}
-                    >
-                      {w.word} {w.strongs.length > 0 ? `(${w.strongs[0]})` : ''}
-                    </Button>
-                  ))}
-                </div>
-              )}
-            </div>
-          ) : strongsData ? (
-            <div>
-              <div className="tooltip-section info-section">
-                <div className="tooltip-row">
-                  <span className="label">English Word:</span>
-                  <span className="value english-word">{strongsData.matchedWord}</span>
-                </div>
-                <div className="tooltip-row">
-                  <span className="label">Root Word:</span>
-                  <span className="value original-greek-text" dangerouslySetInnerHTML={{ __html: strongsData.rootWord }} />
-                </div>
-                <div className="tooltip-row">
-                  <span className="label">Transliteration:</span>
-                  <span className="value transliteration">{strongsData.transliteration}</span>
-                </div>
-                {strongsData.pronunciation && (
-                  <div className="tooltip-row">
-                    <span className="label">Pronunciation:</span>
-                    <span className="value pronunciation">[{strongsData.pronunciation}]</span>
-                  </div>
-                )}
-                <div className="tooltip-row">
-                  <span className="label">Strong's ID:</span>
-                  <span className="value strongs-code">{strongsData.number}</span>
-                </div>
-              </div>
-
-              <div className="tooltip-section definition-section">
-                <div className="sub-heading">Strong's Definition:</div>
-                <div 
-                  className="definition-entry" 
-                  dangerouslySetInnerHTML={{ __html: strongsData.entry }} 
-                />
-              </div>
-
-              {verseStrongs.length > 0 && (
-                <div className="tooltip-section select-other-section">
-                  <Collapse ghost size="small">
-                    <Collapse.Panel header="Compare other words in this verse" key="1">
-                      <div className="verse-words-list">
-                        {verseStrongs.map((w, idx) => (
-                          <Button 
-                            key={idx} 
-                            size="small" 
-                            type={strongsData.number === w.strongs[0] ? 'primary' : 'default'}
-                            disabled={w.strongs.length === 0}
-                            onClick={() => w.strongs.length > 0 && fetchStrongsDefinition(w.strongs[0], verseStrongs, w.word)}
-                            style={{ margin: '3px', borderRadius: '4px', fontSize: '11px' }}
-                          >
-                            {w.word}
-                          </Button>
-                        ))}
-                      </div>
-                    </Collapse.Panel>
-                  </Collapse>
-                </div>
-              )}
-            </div>
-          ) : (
-            <div style={{ color: 'var(--text-secondary)' }}>No data loaded.</div>
-          )}
-        </div>
-      </div>
-    );
-  };
-
-  // Lazy load Compare Bible data when compareVersion, compareMode, selectedBook, or selectedChapter changes
-  useEffect(() => {
-    if (!compareMode) return;
-    const apiVersions = { "KJV": "eng_kjv", "ASV": "eng_asv", "BBE": "eng_bbe", "BSB": "BSB" };
-    
-    if (apiVersions[compareVersion]) {
-      if (compareFullLoaded) return;
-      setCompareLoading(true);
-      const helloAoId = apiVersions[compareVersion];
-      const helloAoBookId = localToHelloAoMap[selectedBook] || selectedBook;
-      const url = `https://bible.helloao.org/api/${helloAoId}/${helloAoBookId}/${selectedChapter}.json`;
-      
-      fetch(url)
-        .then(res => {
-          if (!res.ok) throw new Error("Failed to fetch chapter");
-          return res.json();
-        })
-        .then(data => {
-          const flat = [];
-          const ch = data.chapter;
-          if (ch && Array.isArray(ch.content)) {
-            ch.content.forEach(item => {
-              if (item.type === 'verse') {
-                const verseNum = item.number || item.verse;
-                const text = item.content
-                  .filter(part => typeof part === 'string')
-                  .join(' ');
-                flat.push({
-                  book: selectedBook,
-                  chapter: selectedChapter,
-                  verse: typeof verseNum === 'string' ? parseInt(verseNum) : verseNum,
-                  text: text
-                });
-              }
-            });
-          }
-          setCompareBibleData(flat);
-          setCompareLoading(false);
-        })
-        .catch(err => {
-          console.error("API Compare Fetch error:", err);
-          setCompareLoading(false);
-        });
-    } else {
-      setCompareLoading(true);
-      let dataPromise;
-      if (compareVersion === '2018') {
-        dataPromise = import('./data/sinnrv2018.json');
-      } else if (compareVersion === 'TAMOVR') {
-        dataPromise = import('./data/ta_movr.json');
-      } else {
-        dataPromise = import('./data/sirov.json');
-      }
-      dataPromise
-        .then((module) => {
-          const mapped = module.default.map(v => ({
-            book: v.b,
-            chapter: v.c,
-            verse: v.v,
-            text: v.t
-          }));
-          setCompareBibleData(mapped);
-          setCompareFullLoaded(true);
-          setCompareLoading(false);
-        })
-        .catch((err) => {
-          console.error("Failed to load local compare Bible:", err);
-          setCompareLoading(false);
-        });
-    }
-  }, [compareVersion, compareMode, selectedBook, selectedChapter, compareFullLoaded]);
-
-  // Get active books list based on active version language
   const activeBooks = useMemo(() => {
     switch (version) {
       case 'KJV':
@@ -813,7 +640,6 @@ export default function App() {
     }
   }, [version]);
 
-  // Get book name for a specific code and version language
   const getBookName = useCallback((bookCode, forVersion) => {
     let bookSet = booksData;
     switch (forVersion) {
@@ -830,7 +656,6 @@ export default function App() {
     return book ? book.name : bookCode;
   }, []);
 
-  // Get language code for active version
   const getLanguage = useCallback(() => {
     switch (version) {
       case 'KJV':
@@ -845,7 +670,6 @@ export default function App() {
     }
   }, [version]);
 
-  // Translate UI strings to active language
   const t = useCallback((key) => {
     const lang = getLanguage();
     const strings = {
@@ -961,7 +785,6 @@ export default function App() {
     return strings[lang]?.[key] || strings.si[key] || key;
   }, [getLanguage]);
 
-  // Determine books available in the current translation
   const availableBooks = useMemo(() => {
     const apiVersions = { "KJV": "eng_kjv", "ASV": "eng_asv", "BBE": "eng_bbe", "BSB": "BSB" };
     if (apiVersions[version]) {
@@ -972,19 +795,6 @@ export default function App() {
     return activeBooks.filter(b => bookCodes.has(b.code));
   }, [bibleData, activeBooks, version]);
 
-  // Set default book if current selection is invalid
-  useEffect(() => {
-    if (selectedBook === "bookmarks") return;
-    if (availableBooks.length > 0) {
-      const isSelectedBookAvailable = availableBooks.some(b => b.code === selectedBook);
-      if (!isSelectedBookAvailable) {
-        setSelectedBook(availableBooks[0].code);
-        setSelectedChapter(1);
-      }
-    }
-  }, [availableBooks, selectedBook]);
-
-  // Get active book name in selected language
   const currentBookName = useMemo(() => {
     if (selectedBook === "bookmarks") {
       switch (version) {
@@ -1001,20 +811,11 @@ export default function App() {
     return book ? book.name : "";
   }, [selectedBook, activeBooks, version]);
 
-  // Get total chapters in the currently selected book
   const totalChapters = useMemo(() => {
     if (selectedBook === "bookmarks") return 0;
     return bookChaptersMap[selectedBook] || 0;
   }, [selectedBook]);
 
-  // Reset chapter selection if it exceeds total chapters of new book
-  useEffect(() => {
-    if (selectedBook !== "bookmarks" && totalChapters > 0 && selectedChapter > totalChapters) {
-      setSelectedChapter(1);
-    }
-  }, [selectedBook, totalChapters, selectedChapter]);
-
-  // Filter verses based on state
   const displayedVerses = useMemo(() => {
     if (bibleData.length === 0 || selectedBook === "bookmarks") return [];
 
@@ -1035,408 +836,32 @@ export default function App() {
     return bibleData.filter(v => v.book === selectedBook && v.chapter === selectedChapter);
   }, [bibleData, selectedBook, selectedChapter, searchTerm, searchScope, searchActive]);
 
-  // Render highlighted text for search results
-  const renderHighlightedText = (text, highlight) => {
-    if (!highlight || highlight.trim() === "") return text;
-    
-    const escapedHighlight = highlight.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&');
-    const regex = new RegExp(`(${escapedHighlight})`, 'gi');
-    const parts = text.split(regex);
-    
-    return (
-      <span>
-        {parts.map((part, i) => 
-          part.toLowerCase() === highlight.trim().toLowerCase() 
-            ? <span key={i} className="highlight">{part}</span> 
-            : part
-        )}
-      </span>
-    );
+  // Shared props objects for SiderContent component
+  const sharedSiderProps = {
+    isMobile,
+    setCollapsed,
+    theme,
+    version,
+    setVersion,
+    compareMode,
+    setCompareMode,
+    compareVersion,
+    setCompareVersion,
+    selectedBook,
+    setSelectedBook,
+    setSelectedChapter,
+    searchActive,
+    setSearchActive,
+    searchTerm,
+    setSearchTerm,
+    handleSearch,
+    searchScope,
+    setSearchScope,
+    bookmarks,
+    availableBooks,
+    t,
+    versionsList
   };
-
-  // Trigger search
-  const handleSearch = async (val) => {
-    if (val.trim() === "") {
-      clearSearch();
-      return;
-    }
-
-    const apiVersions = { "KJV": "eng_kjv", "ASV": "eng_asv", "BBE": "eng_bbe", "BSB": "BSB" };
-
-    if (apiVersions[version] && !isFullLoaded) {
-      setSearchLoading(true);
-      try {
-        const res = await fetch(`https://bible.helloao.org/api/${apiVersions[version]}/complete.json`);
-        if (!res.ok) throw new Error("Failed to fetch full Bible JSON");
-        const data = await res.json();
-        
-        // Flatten complete.json
-        const flat = [];
-        const helloAoToLocalMap = {};
-        for (const [localCode, helloAoId] of Object.entries(localToHelloAoMap)) {
-          helloAoToLocalMap[helloAoId] = localCode;
-        }
-
-        if (data && Array.isArray(data.books)) {
-          data.books.forEach(b => {
-            const bookCode = helloAoToLocalMap[b.id] || b.id;
-            if (Array.isArray(b.chapters)) {
-              b.chapters.forEach(chObj => {
-                const ch = chObj.chapter;
-                if (ch && Array.isArray(ch.content)) {
-                  ch.content.forEach(item => {
-                    if (item.type === 'verse') {
-                      const verseNum = item.number || item.verse;
-                      const text = item.content
-                        .filter(part => typeof part === 'string')
-                        .join(' ');
-                      flat.push({
-                        book: bookCode,
-                        chapter: ch.number,
-                        verse: typeof verseNum === 'string' ? parseInt(verseNum) : verseNum,
-                        text: text
-                      });
-                    }
-                  });
-                }
-              });
-            }
-          });
-        }
-        setBibleData(flat);
-        setIsFullLoaded(true);
-      } catch (err) {
-        console.error("Failed to load search database:", err);
-        message.error("සෙවුම් දත්ත පූරණය අසාර්ථක විය. (Failed to load search database from API)");
-      } finally {
-        setSearchLoading(false);
-      }
-    }
-
-    // Load compared API version if needed
-    if (compareMode && apiVersions[compareVersion] && !compareFullLoaded) {
-      setSearchLoading(true);
-      try {
-        const res = await fetch(`https://bible.helloao.org/api/${apiVersions[compareVersion]}/complete.json`);
-        if (!res.ok) throw new Error("Failed to fetch full compare Bible JSON");
-        const data = await res.json();
-        
-        const flat = [];
-        const helloAoToLocalMap = {};
-        for (const [localCode, helloAoId] of Object.entries(localToHelloAoMap)) {
-          helloAoToLocalMap[helloAoId] = localCode;
-        }
-
-        if (data && Array.isArray(data.books)) {
-          data.books.forEach(b => {
-            const bookCode = helloAoToLocalMap[b.id] || b.id;
-            if (Array.isArray(b.chapters)) {
-              b.chapters.forEach(chObj => {
-                const ch = chObj.chapter;
-                if (ch && Array.isArray(ch.content)) {
-                  ch.content.forEach(item => {
-                    if (item.type === 'verse') {
-                      const verseNum = item.number || item.verse;
-                      const text = item.content
-                        .filter(part => typeof part === 'string')
-                        .join(' ');
-                      flat.push({
-                        book: bookCode,
-                        chapter: ch.number,
-                        verse: typeof verseNum === 'string' ? parseInt(verseNum) : verseNum,
-                        text: text
-                      });
-                    }
-                  });
-                }
-              });
-            }
-          });
-        }
-        setCompareBibleData(flat);
-        setCompareFullLoaded(true);
-      } catch (err) {
-        console.error("Failed to load compare search database:", err);
-      } finally {
-        setSearchLoading(false);
-      }
-    }
-
-    setSearchTerm(val);
-    setSearchActive(true);
-  };
-
-  // Reset Search
-  const clearSearch = () => {
-    setSearchTerm("");
-    setSearchActive(false);
-  };
-
-  // Navigate to previous/next chapter
-  const handlePrevChapter = () => {
-    if (selectedChapter > 1) {
-      setSelectedChapter(selectedChapter - 1);
-    } else {
-      const currentIdx = availableBooks.findIndex(b => b.code === selectedBook);
-      if (currentIdx > 0) {
-        const prevBook = availableBooks[currentIdx - 1].code;
-        setSelectedBook(prevBook);
-        const prevTotalCh = bookChaptersMap[prevBook] || 0;
-        setSelectedChapter(prevTotalCh);
-      }
-    }
-  };
-
-  const handleNextChapter = () => {
-    if (selectedChapter < totalChapters) {
-      setSelectedChapter(selectedChapter + 1);
-    } else {
-      const currentIdx = availableBooks.findIndex(b => b.code === selectedBook);
-      if (currentIdx < availableBooks.length - 1) {
-        const nextBook = availableBooks[currentIdx + 1].code;
-        setSelectedBook(nextBook);
-        setSelectedChapter(1);
-      }
-    }
-  };
-
-  // Add/Update bookmark (highlight)
-  const handleAddBookmark = (v, color) => {
-    const newBookmark = {
-      book: v.book,
-      chapter: v.chapter,
-      verse: v.verse,
-      color: color,
-      version: version,
-      text: v.text
-    };
-    
-    const idx = bookmarks.findIndex(b => b.book === v.book && b.chapter === v.chapter && b.verse === v.verse);
-    let updated;
-    if (idx !== -1) {
-      updated = [...bookmarks];
-      updated[idx] = newBookmark;
-    } else {
-      updated = [...bookmarks, newBookmark];
-    }
-    setBookmarks(updated);
-    message.success("පදය සුරකින ලදී! (Verse bookmarked)");
-    
-    // Sync to Google Sheet if url is configured
-    if (googleScriptUrl) {
-      const url = `${googleScriptUrl}?action=add&syncId=${syncId}&book=${v.book}&chapter=${v.chapter}&verse=${v.verse}&color=${encodeURIComponent(color)}&version=${version}&text=${encodeURIComponent(v.text)}`;
-      fetch(url, { mode: 'no-cors' }).catch(err => console.error("Sync add error:", err));
-    }
-  };
-
-  // Remove bookmark (highlight)
-  const handleRemoveBookmark = (book, chapter, verse) => {
-    const updated = bookmarks.filter(b => !(b.book === book && b.chapter === chapter && b.verse === verse));
-    setBookmarks(updated);
-    message.info("පදය ඉවත් කරන ලදී. (Bookmark removed)");
-    
-    // Sync to Google Sheet if url is configured
-    if (googleScriptUrl) {
-      const url = `${googleScriptUrl}?action=delete&syncId=${syncId}&book=${book}&chapter=${chapter}&verse=${verse}`;
-      fetch(url, { mode: 'no-cors' }).catch(err => console.error("Sync delete error:", err));
-    }
-  };
-
-  // Navigate to bookmarked verse in reading view
-  const handleJumpToVerse = (b) => {
-    setVersion(b.version);
-    setSelectedBook(b.book);
-    setSelectedChapter(b.chapter);
-    clearSearch();
-    
-    setTimeout(() => {
-      const el = document.getElementById(`v-${b.verse}`);
-      if (el) {
-        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        el.classList.add('flash-effect');
-        setTimeout(() => el.classList.remove('flash-effect'), 2000);
-      }
-    }, 400);
-  };
-
-  // Copy sync key to clipboard
-  const handleCopyText = (text) => {
-    navigator.clipboard.writeText(text);
-    message.success("පිටපත් කරන ලදී! (Copied)");
-  };
-
-  // Sider and Drawer Shared Content
-  const renderSiderContent = () => (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-      <div className="sider-header">
-        <span><BookOutlined style={{ marginRight: '8px' }} />{t('index')}</span>
-      </div>
-
-      {/* Responsive mobile panel for version selectors & search */}
-      {isMobile && (
-        <div style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: '12px', borderBottom: '1px solid var(--border-color)', background: theme === 'dark' ? '#111827' : '#f7fafc' }}>
-          <div>
-            <Button 
-              type={compareMode ? "primary" : "default"}
-              size="small"
-              icon={<TranslationOutlined />}
-              onClick={() => setCompareMode(!compareMode)}
-              style={{ width: '100%', marginBottom: '12px', borderRadius: '8px' }}
-            >
-              {compareMode ? t('compareModeActive') : t('compareModeInactive')}
-            </Button>
-            <Text type="secondary" style={{ fontSize: '11px', display: 'block', marginBottom: '4px' }}>{t('versionLabel')}</Text>
-            <Select 
-              value={version} 
-              onChange={(val) => {
-                setVersion(val);
-                setCollapsed(true); // auto-collapse sidebar drawer on mobile
-              }} 
-              style={{ width: '100%' }}
-              dropdownStyle={{ borderRadius: '8px' }}
-              disabled={selectedBook === "bookmarks"}
-            >
-              {versionsList.map(v => (
-                <Select.Option key={v.value} value={v.value}>{v.label}</Select.Option>
-              ))}
-            </Select>
-
-            {compareMode && (
-              <div style={{ marginTop: '8px' }}>
-                <Text type="secondary" style={{ fontSize: '11px', display: 'block', marginBottom: '4px' }}>{t('compareVersionLabel')}</Text>
-                <Select 
-                  value={compareVersion} 
-                  onChange={(val) => {
-                    setCompareVersion(val);
-                    setCollapsed(true); // auto-collapse sidebar drawer on mobile
-                  }} 
-                  style={{ width: '100%' }}
-                  dropdownStyle={{ borderRadius: '8px' }}
-                  disabled={selectedBook === "bookmarks"}
-                >
-                  {versionsList.map(v => (
-                    <Select.Option key={v.value} value={v.value}>{v.label}</Select.Option>
-                  ))}
-                </Select>
-              </div>
-            )}
-          </div>
-          <div>
-            <Text type="secondary" style={{ fontSize: '11px', display: 'block', marginBottom: '4px' }}>{t('searchLabel')}</Text>
-            {selectedBook !== "bookmarks" && (
-              <Input.Search 
-                placeholder={t('searchPlaceholder')}
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                onSearch={(val) => {
-                  handleSearch(val);
-                  setCollapsed(true); // auto-collapse sidebar drawer on mobile
-                }}
-                allowClear
-                style={{ width: '100%' }} 
-              />
-            )}
-          </div>
-          {searchActive && selectedBook !== "bookmarks" && (
-            <div>
-              <Text type="secondary" style={{ fontSize: '11px', display: 'block', marginBottom: '4px' }}>{t('searchScopeLabel')}</Text>
-              <Radio.Group 
-                value={searchScope} 
-                onChange={(e) => {
-                  setSearchScope(e.target.value);
-                  setCollapsed(true);
-                }}
-                optionType="button"
-                buttonStyle="solid"
-                size="small"
-                style={{ width: '100%', display: 'flex' }}
-              >
-                <Radio.Button value="global" style={{ flex: 1, textAlign: 'center' }}>{t('allBooks')}</Radio.Button>
-                <Radio.Button value="book" style={{ flex: 1, textAlign: 'center' }}>{t('thisBook')}</Radio.Button>
-              </Radio.Group>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Books Menu */}
-      <div style={{ flexGrow: 1, overflowY: 'auto' }}>
-        <Menu 
-          mode="vertical" 
-          selectedKeys={[selectedBook]}
-          theme={theme}
-          onClick={(info) => {
-            setSelectedBook(info.key);
-            if (info.key !== "bookmarks") {
-              setSelectedChapter(1);
-            }
-            setSearchActive(false);
-            setSearchTerm("");
-            if (isMobile) {
-              setCollapsed(true); // close drawer on selection
-            }
-          }}
-          items={[
-            {
-              key: "bookmarks",
-              icon: <StarFilled style={{ color: '#fadb14' }} />,
-              label: (
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
-                  <span>{t('bookmarks')}</span>
-                  <Badge count={bookmarks.length} overflowCount={99} color="#fadb14" style={{ color: '#000', fontSize: '10px' }} />
-                </div>
-              )
-            },
-            {
-              type: "divider"
-            },
-            ...availableBooks.map(b => ({
-              key: b.code,
-              icon: <BookOutlined />,
-              label: b.name
-            }))
-          ]}
-        />
-      </div>
-
-      {/* Sider Footer Settings */}
-      <div style={{ 
-        padding: '16px 20px', 
-        borderTop: '1px solid var(--border-color)', 
-        display: 'flex', 
-        justifyContent: (collapsed && !isMobile) ? 'center' : 'space-between',
-        alignItems: 'center',
-        background: theme === 'dark' ? '#111827' : '#f7fafc'
-      }}>
-        {(!collapsed || isMobile) ? (
-          <>
-            <div style={{ display: 'flex', flexDirection: 'column' }}>
-              <Text type="secondary" style={{ fontSize: '10px' }}>{t('syncKey')}</Text>
-              <Text strong style={{ fontSize: '13px', color: '#1890ff' }}>{syncId}</Text>
-            </div>
-            <Button 
-              type="primary" 
-              ghost 
-              size="small" 
-              icon={<SettingOutlined />} 
-              onClick={() => {
-                setSettingsVisible(true);
-                if (isMobile) setCollapsed(true);
-              }}
-            >
-              {t('settings')}
-            </Button>
-          </>
-        ) : (
-          <Button 
-            type="text" 
-            icon={<SettingOutlined />} 
-            onClick={() => setSettingsVisible(true)}
-          />
-        )}
-      </div>
-    </div>
-  );
 
   return (
     <ConfigProvider
@@ -1450,117 +875,36 @@ export default function App() {
       }}
     >
       <Layout style={{ minHeight: '100vh', '--verse-font-size': `${fontSize}px`, '--verse-line-height': 1.8 }}>
-        {/* Responsive Header */}
-        <Header style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, width: '100%' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '8px' : '12px' }}>
-            <Button 
-              type="text" 
-              icon={collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />} 
-              onClick={() => setCollapsed(!collapsed)} 
-              style={{ fontSize: '16px', width: 40, height: 40 }}
-            />
-            <img src={logo} alt="Bibalaya Logo" style={{ height: isMobile ? '32px' : '36px', width: isMobile ? '32px' : '36px', borderRadius: '8px', objectFit: 'cover' }} />
-            <Title level={isMobile ? 5 : 4} style={{ margin: 0, fontWeight: 700, letterSpacing: '-0.02em', color: theme === 'dark' ? '#f8fafc' : '#2c3e50', display: 'flex', alignItems: 'center', gap: '6px' }}>
-              Bibalaya.com {!isMobile && <span style={{ fontSize: '12px', opacity: 0.5, fontWeight: 400, marginTop: '4px', color: theme === 'dark' ? '#94a3b8' : '#718096' }}>{t('subtitle')}</span>}
-            </Title>
-          </div>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '8px' : '16px' }}>
-            {!isMobile && (
-              <Space>
-                <Button 
-                  type={compareMode ? "primary" : "default"}
-                  icon={<TranslationOutlined />}
-                  onClick={() => setCompareMode(!compareMode)}
-                >
-                  {compareMode ? t('compareModeActive') : t('compareModeInactive')}
-                </Button>
-                
-                <Select 
-                  value={version} 
-                  onChange={(val) => setVersion(val)} 
-                  style={{ width: compareMode ? 200 : 280 }}
-                  dropdownStyle={{ borderRadius: '8px' }}
-                  disabled={selectedBook === "bookmarks"}
-                >
-                  {versionsList.map(v => (
-                    <Select.Option key={v.value} value={v.value}>{v.label}</Select.Option>
-                  ))}
-                </Select>
-
-                {compareMode && (
-                  <Select 
-                    value={compareVersion} 
-                    onChange={(val) => setCompareVersion(val)} 
-                    style={{ width: 200 }}
-                    dropdownStyle={{ borderRadius: '8px' }}
-                    disabled={selectedBook === "bookmarks"}
-                  >
-                    {versionsList.map(v => (
-                      <Select.Option key={v.value} value={v.value}>{v.label}</Select.Option>
-                    ))}
-                  </Select>
-                )}
-              </Space>
-            )}
-
-            {/* Font Size Adjusters */}
-            <Space style={{ gap: 0 }} className="font-size-adjuster">
-              <Tooltip title={getLanguage() === 'si' ? "අකුරු විශාලත්වය වැඩි කරන්න" : getLanguage() === 'ta' ? "எழுத்துரு அளவை அதிகரிக்கவும்" : "Increase Font Size"}>
-                <Button 
-                  onClick={() => handleFontSizeChange('increase')}
-                  style={{ fontWeight: 'bold', borderTopRightRadius: 0, borderBottomRightRadius: 0, borderRight: 'none' }}
-                >
-                  A+
-                </Button>
-              </Tooltip>
-              <Tooltip title={getLanguage() === 'si' ? "අකුරු විශාලත්වය අඩු කරන්න" : getLanguage() === 'ta' ? "எழுத்துரு அளவை குறைக்கக்கவும்" : "Decrease Font Size"}>
-                <Button 
-                  onClick={() => handleFontSizeChange('decrease')}
-                  style={{ fontWeight: 'bold', borderTopLeftRadius: 0, borderBottomLeftRadius: 0 }}
-                >
-                  A-
-                </Button>
-              </Tooltip>
-            </Space>
-
-            {/* Theme Toggle Button */}
-            <Tooltip title={theme === 'dark' ? "Light Mode" : "Dark Mode"}>
-              <Button 
-                type="text" 
-                icon={theme === 'dark' ? <SunOutlined style={{ color: '#fadb14', fontSize: '18px' }} /> : <MoonOutlined style={{ color: '#4a5568', fontSize: '18px' }} />}
-                onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-                style={{ width: 40, height: 40, borderRadius: '8px' }}
-              />
-            </Tooltip>
-
-            {/* Search Scope (Desktop Only) */}
-            {!isMobile && searchActive && selectedBook !== "bookmarks" && (
-              <Radio.Group 
-                value={searchScope} 
-                onChange={(e) => setSearchScope(e.target.value)}
-                optionType="button"
-                buttonStyle="solid"
-                size="middle"
-              >
-                <Radio.Button value="global">{t('allBooks')}</Radio.Button>
-                <Radio.Button value="book">{t('thisBook')}</Radio.Button>
-              </Radio.Group>
-            )}
-
-            {/* Search Field (Desktop Only) */}
-            {!isMobile && selectedBook !== "bookmarks" && (
-              <Input.Search 
-                placeholder={t('searchPlaceholder')}
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                onSearch={handleSearch}
-                allowClear
-                style={{ width: 280 }} 
-              />
-            )}
-          </div>
-        </Header>
+        
+        {/* Render Header component */}
+        <HeaderBar 
+          theme={theme}
+          setTheme={setTheme}
+          fontSize={fontSize}
+          handleFontSizeChange={handleFontSizeChange}
+          version={version}
+          setVersion={setVersion}
+          compareMode={compareMode}
+          setCompareMode={setCompareMode}
+          compareVersion={compareVersion}
+          setCompareVersion={setCompareVersion}
+          selectedBook={selectedBook}
+          searchTerm={searchTerm}
+          setSearchTerm={setSearchTerm}
+          handleSearch={handleSearch}
+          searchScope={searchScope}
+          setSearchScope={setSearchScope}
+          searchActive={searchActive}
+          clearSearch={clearSearch}
+          isMobile={isMobile}
+          collapsed={collapsed}
+          setCollapsed={setCollapsed}
+          openSettings={() => setSettingsVisible(true)}
+          t={t}
+          versionsList={versionsList}
+          getLanguage={getLanguage}
+          logo={logo}
+        />
 
         <Layout>
           {/* Books Drawer for Mobile, Sider for Desktop */}
@@ -1573,7 +917,7 @@ export default function App() {
               headerStyle={{ display: 'none' }}
               bodyStyle={{ padding: 0, height: '100%' }}
             >
-              {renderSiderContent()}
+              <SiderContent {...sharedSiderProps} />
             </Drawer>
           ) : (
             <Sider 
@@ -1588,7 +932,7 @@ export default function App() {
                 top: 70
               }}
             >
-              {renderSiderContent()}
+              <SiderContent {...sharedSiderProps} />
             </Sider>
           )}
 
@@ -1604,72 +948,14 @@ export default function App() {
                 
                 {/* 1. BOOKMARKS VIEW */}
                 {selectedBook === "bookmarks" ? (
-                  <div>
-                    <div className="hero-section" style={{ background: 'linear-gradient(135deg, #b91c1c 0%, #7f1d1d 100%)' }}>
-                      <Title level={isMobile ? 3 : 2} style={{ color: 'white', margin: 0, display: 'flex', alignItems: 'center', gap: '12px' }}>
-                        <StarFilled style={{ color: '#fadb14' }} /> {t('savedBookmarksTitle')}
-                      </Title>
-                      <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: '14px', display: 'block', marginTop: '6px' }}>
-                        {t('savedBookmarksDesc')}
-                      </Text>
-                    </div>
-
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                      {bookmarks.length > 0 ? (
-                        bookmarks.map((b, i) => {
-                          const bookName = getBookName(b.book, b.version);
-                          return (
-                            <Card 
-                              key={i} 
-                              className="verse-card animate-fade-in"
-                              style={{ background: b.color }}
-                              bodyStyle={isMobile ? { padding: '16px 18px' } : { padding: '20px 24px' }}
-                            >
-                              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '8px' }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
-                                  <Text strong style={{ fontSize: '15px' }}>
-                                    {bookName} {b.chapter}:{b.verse} 
-                                    <span style={{ fontSize: '11px', opacity: 0.6, marginLeft: '8px', fontWeight: 400 }}>
-                                      ({b.version})
-                                    </span>
-                                  </Text>
-                                  <Space>
-                                    <Button 
-                                      type="primary" 
-                                      size="small" 
-                                      onClick={() => handleJumpToVerse(b)}
-                                    >
-                                      {t('readButton')}
-                                    </Button>
-                                    <Button 
-                                      type="primary" 
-                                      danger 
-                                      size="small" 
-                                      icon={<DeleteOutlined />} 
-                                      onClick={() => handleRemoveBookmark(b.book, b.chapter, b.verse)}
-                                    />
-                                  </Space>
-                                </div>
-                              </div>
-                              <Text className="verse-text" style={{ fontStyle: 'italic', display: 'block', marginTop: '4px' }}>
-                                "{b.text}"
-                              </Text>
-                            </Card>
-                          );
-                        })
-                      ) : (
-                        <Empty 
-                          image={Empty.PRESENTED_IMAGE_SIMPLE} 
-                          description={
-                            <span style={{ fontSize: '14px', color: '#718096' }}>
-                              {t('noBookmarks')}
-                            </span>
-                          }
-                          style={{ background: 'var(--card-bg)', padding: '48px 24px', borderRadius: '12px', border: '1px solid var(--border-color)' }}
-                        />
-                      )}
-                    </div>
-                  </div>
+                  <BookmarksView 
+                    bookmarks={bookmarks}
+                    getBookName={getBookName}
+                    handleJumpToVerse={handleJumpToVerse}
+                    handleRemoveBookmark={handleRemoveBookmark}
+                    isMobile={isMobile}
+                    t={t}
+                  />
                 ) : (
                   
                   // 2. REGULAR BIBLE READING VIEW
@@ -1783,157 +1069,26 @@ export default function App() {
                         displayedVerses.slice(0, 150).map((v, i) => {
                           const bookName = activeBooks.find(b => b.code === v.book)?.name || v.book;
                           
-                          // Check if highlighted
-                          const hl = bookmarks.find(b => b.book === v.book && b.chapter === v.chapter && b.verse === v.verse);
-                          const cardStyle = hl ? { background: hl.color, borderLeft: '4px solid #1890ff' } : {};
-                          
-                          // Find compare verse if in compare mode
-                          let compareVerse = null;
-                          if (compareMode) {
-                            compareVerse = compareBibleData.find(cv => cv.book === v.book && cv.chapter === v.chapter && cv.verse === v.verse);
-                          }
-                          const compareText = compareVerse ? compareVerse.text : "...";
-
-                          // Popover Color selector
-                          const popoverContent = (
-                            <div style={{ width: '220px' }}>
-                              <Text strong style={{ display: 'block', marginBottom: '8px', fontSize: '12px' }}>{t('highlightPopoverTitle')}</Text>
-                              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '8px', marginBottom: '12px' }}>
-                                {paletteColors.map((c, idx) => (
-                                  <div 
-                                    key={idx}
-                                    onClick={() => handleAddBookmark(v, c.hsl)}
-                                    style={{ 
-                                      width: '28px', 
-                                      height: '28px', 
-                                      borderRadius: '50%', 
-                                      background: c.hsl.replace('0.3', '0.9').replace('0.35', '0.9'),
-                                      border: hl && hl.color === c.hsl ? '2.5px solid #1890ff' : '1px solid rgba(0,0,0,0.15)',
-                                      cursor: 'pointer',
-                                      boxShadow: 'inset 0 1px 3px rgba(0,0,0,0.1)',
-                                      transition: 'transform 0.1s'
-                                    }}
-                                    className="color-selector"
-                                  />
-                                ))}
-                              </div>
-                              {hl && (
-                                <Button 
-                                  type="primary" 
-                                  danger 
-                                  size="small" 
-                                  block 
-                                  icon={<DeleteOutlined />} 
-                                  onClick={() => handleRemoveBookmark(v.book, v.chapter, v.verse)}
-                                  style={{ borderRadius: '6px' }}
-                                >
-                                  {t('clearHighlightButton')}
-                                </Button>
-                              )}
-                            </div>
-                          );
-
-                          const renderCardContent = () => {
-                            if (compareMode && !isMobile) {
-                              return (
-                                <div style={{ display: 'flex', gap: '24px' }}>
-                                  <div style={{ flex: 1, borderRight: '1px solid var(--border-color)', paddingRight: '16px' }}>
-                                    <Paragraph style={{ margin: 0, display: 'flex', alignItems: 'flex-start' }}>
-                                      <Popover content={popoverContent} trigger="click" placement="bottomLeft">
-                                        <span className="verse-number" style={{ cursor: 'pointer' }}>
-                                          {searchActive ? `${bookName} ${v.chapter}:${v.verse}` : `${v.verse}`}
-                                        </span>
-                                      </Popover>
-                                      <span 
-                                        className={`verse-text ${isEnglishVersion(version) ? 'english-verse' : ''}`}
-                                        onDoubleClick={isEnglishVersion(version) ? (e) => handleVerseDoubleClick(e, v, version) : undefined}
-                                        style={isEnglishVersion(version) ? { cursor: 'pointer' } : {}}
-                                      >
-                                        {searchActive ? renderHighlightedText(v.text, searchTerm) : v.text}
-                                      </span>
-                                    </Paragraph>
-                                  </div>
-                                  <div style={{ flex: 1 }}>
-                                    <Paragraph style={{ margin: 0, display: 'flex', alignItems: 'flex-start' }}>
-                                      <span className="verse-number" style={{ background: 'rgba(0,0,0,0.05)', color: 'var(--text-secondary)' }}>
-                                        {searchActive ? `${bookName} ${v.chapter}:${v.verse}` : `${v.verse}`}
-                                      </span>
-                                      <span 
-                                        className={`verse-text ${isEnglishVersion(compareVersion) ? 'english-verse' : ''}`}
-                                        onDoubleClick={isEnglishVersion(compareVersion) ? (e) => handleVerseDoubleClick(e, v, compareVersion) : undefined}
-                                        style={isEnglishVersion(compareVersion) ? { cursor: 'pointer' } : {}}
-                                      >
-                                        {searchActive ? renderHighlightedText(compareText, searchTerm) : compareText}
-                                      </span>
-                                    </Paragraph>
-                                  </div>
-                                </div>
-                              );
-                            }
-                            
-                            if (compareMode && isMobile) {
-                              return (
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                                  <div>
-                                    <Paragraph style={{ margin: 0, display: 'flex', alignItems: 'flex-start' }}>
-                                      <Popover content={popoverContent} trigger="click" placement="bottomLeft">
-                                        <span className="verse-number" style={{ cursor: 'pointer' }}>
-                                          {searchActive ? `${bookName} ${v.chapter}:${v.verse}` : `${v.verse}`}
-                                        </span>
-                                      </Popover>
-                                      <span 
-                                        className={`verse-text ${isEnglishVersion(version) ? 'english-verse' : ''}`}
-                                        onDoubleClick={isEnglishVersion(version) ? (e) => handleVerseDoubleClick(e, v, version) : undefined}
-                                        style={isEnglishVersion(version) ? { cursor: 'pointer' } : {}}
-                                      >
-                                        {searchActive ? renderHighlightedText(v.text, searchTerm) : v.text}
-                                      </span>
-                                    </Paragraph>
-                                  </div>
-                                  <div style={{ 
-                                    paddingTop: '8px', 
-                                    borderTop: '1px dashed var(--border-color)',
-                                    opacity: 0.85
-                                  }}>
-                                    <Paragraph style={{ margin: 0, display: 'flex', alignItems: 'flex-start' }}>
-                                      <span className="verse-number" style={{ background: 'rgba(24, 144, 255, 0.08)', color: 'var(--accent-color)', fontSize: '10px', padding: '1px 5px' }}>
-                                        {compareVersion}
-                                      </span>
-                                      <span 
-                                        className={`verse-text ${isEnglishVersion(compareVersion) ? 'english-verse' : ''}`}
-                                        onDoubleClick={isEnglishVersion(compareVersion) ? (e) => handleVerseDoubleClick(e, v, compareVersion) : undefined}
-                                        style={isEnglishVersion(compareVersion) ? { fontStyle: 'italic', opacity: 0.9, cursor: 'pointer' } : { fontStyle: 'italic', opacity: 0.9 }}
-                                      >
-                                        {searchActive ? renderHighlightedText(compareText, searchTerm) : compareText}
-                                      </span>
-                                    </Paragraph>
-                                  </div>
-                                </div>
-                              );
-                            }
-
-                            return (
-                              <Paragraph style={{ margin: 0, display: 'flex', alignItems: 'flex-start' }}>
-                                <Popover content={popoverContent} trigger="click" placement="bottomLeft">
-                                  <span className="verse-number" style={{ cursor: 'pointer' }}>
-                                    {searchActive ? `${bookName} ${v.chapter}:${v.verse}` : `${v.verse}`}
-                                  </span>
-                                </Popover>
-                                <span className={`verse-text ${isEnglishVersion(version) ? 'english-verse' : ''}`} onDoubleClick={isEnglishVersion(version) ? (e) => handleVerseDoubleClick(e, v, version) : undefined} style={isEnglishVersion(version) ? { cursor: 'pointer' } : {}}>{searchActive ? renderHighlightedText(v.text, searchTerm) : v.text}</span>
-                              </Paragraph>
-                            );
-                          };
-
                           return (
-                            <Card 
-                              key={i} 
-                              className="verse-card animate-fade-in" 
-                              style={cardStyle}
-                              bodyStyle={isMobile ? { padding: '16px 18px' } : { padding: '20px 24px' }}
-                              id={`v-${v.verse}`}
-                            >
-                              {renderCardContent()}
-                            </Card>
+                            <VerseCard 
+                              key={i}
+                              v={v}
+                              bookName={bookName}
+                              bookmarks={bookmarks}
+                              version={version}
+                              compareVersion={compareVersion}
+                              compareMode={compareMode}
+                              compareBibleData={compareBibleData}
+                              isMobile={isMobile}
+                              theme={theme}
+                              handleAddBookmark={handleAddBookmark}
+                              handleRemoveBookmark={handleRemoveBookmark}
+                              handleVerseDoubleClick={handleVerseDoubleClick}
+                              isEnglishVersion={isEnglishVersion}
+                              t={t}
+                              searchActive={searchActive}
+                              searchTerm={searchTerm}
+                            />
                           );
                         })
                       ) : (
@@ -2106,7 +1261,13 @@ export default function App() {
           </Collapse.Panel>
         </Collapse>
       </Drawer>
-      {renderDoubleClickTooltip()}
+      
+      {/* Lexicon Overlay Popup Tooltip */}
+      <LexiconTooltip 
+        doubleClickWordInfo={doubleClickWordInfo}
+        setDoubleClickWordInfo={setDoubleClickWordInfo}
+        fetchStrongsDefinition={fetchStrongsDefinition}
+      />
     </ConfigProvider>
   );
 }
