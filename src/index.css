@@ -253,3 +253,50 @@ body {
 .flash-effect {
   animation: flash 1.5s ease-in-out;
 }
+
+/* MOBILE RESPONSIVE STYLES */
+@media (max-width: 768px) {
+  .ant-layout-header {
+    padding: 0 16px !important;
+  }
+  
+  .hero-section {
+    padding: 24px 20px !important;
+    margin-bottom: 16px !important;
+  }
+  
+  .hero-section h2 {
+    font-size: 22px !important;
+  }
+  
+  .chapter-grid {
+    gap: 6px !important;
+    padding: 12px !important;
+  }
+  
+  .chapter-badge {
+    width: 34px;
+    height: 34px;
+    font-size: 13px;
+  }
+  
+  .verse-card {
+    border-radius: 8px !important;
+  }
+  
+  .verse-text {
+    font-size: 15px !important;
+    line-height: 1.7 !important;
+  }
+  
+  .verse-number {
+    font-size: 12px;
+    padding: 1px 6px;
+    margin-right: 8px;
+  }
+  
+  /* Fix Drawer padding */
+  .ant-drawer-body {
+    padding: 0 !important;
+  }
+}

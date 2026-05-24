@@ -48,7 +48,6 @@ const { Title, Text, Paragraph } = Typography;
 
 const antIcon = <LoadingOutlined style={{ fontSize: 32 }} spin />;
 
-// 20 pastel colors for highlighting (suitable for both light & dark themes via opacity)
 const paletteColors = [
   { name: 'රතු (Red)', hsl: 'hsla(0, 100%, 75%, 0.3)' },
   { name: 'තැඹිලි (Orange)', hsl: 'hsla(24, 100%, 75%, 0.3)' },
@@ -72,7 +71,6 @@ const paletteColors = [
   { name: 'දුඹුරු (Teal)', hsl: 'hsla(165, 80%, 75%, 0.3)' }
 ];
 
-// Google Apps Script source code template for instructions
 const appsScriptCode = `function doGet(e) {
   var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
   if (sheet.getLastRow() === 0) {
@@ -154,13 +152,14 @@ const appsScriptCode = `function doGet(e) {
 export default function App() {
   const [bibleData, setBibleData] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [version, setVersion] = useState("ROV"); // 'ROV' (Old Revised) is now default
+  const [version, setVersion] = useState("ROV"); // 'ROV' (Old Revised) is default
   const [selectedBook, setSelectedBook] = useState("Gen");
   const [selectedChapter, setSelectedChapter] = useState(1);
   const [searchTerm, setSearchTerm] = useState("");
   const [searchScope, setSearchScope] = useState("global"); // 'global' or 'book'
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(true);
   const [searchActive, setSearchActive] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
   
   // Theme state
   const [theme, setTheme] = useState(() => localStorage.getItem("bible-theme") || "light");
@@ -182,6 +181,22 @@ export default function App() {
     const saved = localStorage.getItem("bible-bookmarks");
     return saved ? JSON.parse(saved) : [];
   });
+
+  // Detect mobile viewport
+  useEffect(() => {
+    const handleResize = () => {
+      const mobile = window.innerWidth < 768;
+      setIsMobile(mobile);
+      if (mobile) {
+        setCollapsed(true); // default to closed drawer on mobile
+      } else {
+        setCollapsed(false); // default to open sidebar on desktop
+      }
+    };
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   // Sync theme to root HTML element
   useEffect(() => {
@@ -261,7 +276,7 @@ export default function App() {
     return booksData.filter(b => bookCodes.has(b.code));
   }, [bibleData]);
 
-  // Set default book if current selection is invalid (e.g. apocrypha in SIROV)
+  // Set default book if current selection is invalid
   useEffect(() => {
     if (selectedBook === "bookmarks") return;
     if (availableBooks.length > 0) {
@@ -442,6 +457,149 @@ export default function App() {
     message.success("පිටපත් කරන ලදී! (Copied)");
   };
 
+  // Sider and Drawer Shared Content
+  const renderSiderContent = () => (
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+      <div className="sider-header">
+        <span><BookOutlined style={{ marginRight: '8px' }} />නාමාවලිය</span>
+      </div>
+
+      {/* Responsive mobile panel for version selectors & search */}
+      {isMobile && (
+        <div style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: '12px', borderBottom: '1px solid var(--border-color)', background: theme === 'dark' ? '#111827' : '#f7fafc' }}>
+          <div>
+            <Text type="secondary" style={{ fontSize: '11px', display: 'block', marginBottom: '4px' }}>පරිවර්තනය (Version):</Text>
+            <Select 
+              value={version} 
+              onChange={(val) => {
+                setVersion(val);
+                setCollapsed(true); // auto-collapse sidebar drawer on mobile
+              }} 
+              style={{ width: '100%' }}
+              dropdownStyle={{ borderRadius: '8px' }}
+              disabled={selectedBook === "bookmarks"}
+            >
+              <Select.Option value="2018">2018 නව සංශෝධිත</Select.Option>
+              <Select.Option value="ROV">පැරණි සංශෝධිත</Select.Option>
+            </Select>
+          </div>
+          <div>
+            <Text type="secondary" style={{ fontSize: '11px', display: 'block', marginBottom: '4px' }}>පද සෙවීම (Search):</Text>
+            {selectedBook !== "bookmarks" && (
+              <Input.Search 
+                placeholder="පද සොයන්න (Search)..." 
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                onSearch={(val) => {
+                  handleSearch(val);
+                  setCollapsed(true); // auto-collapse sidebar drawer on mobile
+                }}
+                allowClear
+                style={{ width: '100%' }} 
+              />
+            )}
+          </div>
+          {searchActive && selectedBook !== "bookmarks" && (
+            <div>
+              <Text type="secondary" style={{ fontSize: '11px', display: 'block', marginBottom: '4px' }}>සෙවුම් සීමාව (Search Scope):</Text>
+              <Radio.Group 
+                value={searchScope} 
+                onChange={(e) => {
+                  setSearchScope(e.target.value);
+                  setCollapsed(true);
+                }}
+                optionType="button"
+                buttonStyle="solid"
+                size="small"
+                style={{ width: '100%', display: 'flex' }}
+              >
+                <Radio.Button value="global" style={{ flex: 1, textAlign: 'center' }}>සියලු පොත්</Radio.Button>
+                <Radio.Button value="book" style={{ flex: 1, textAlign: 'center' }}>මෙම පොතෙන්</Radio.Button>
+              </Radio.Group>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Books Menu */}
+      <div style={{ flexGrow: 1, overflowY: 'auto' }}>
+        <Menu 
+          mode="vertical" 
+          selectedKeys={[selectedBook]}
+          theme={theme}
+          onClick={(info) => {
+            setSelectedBook(info.key);
+            if (info.key !== "bookmarks") {
+              setSelectedChapter(1);
+            }
+            setSearchActive(false);
+            setSearchTerm("");
+            if (isMobile) {
+              setCollapsed(true); // close drawer on selection
+            }
+          }}
+          items={[
+            {
+              key: "bookmarks",
+              icon: <StarFilled style={{ color: '#fadb14' }} />,
+              label: (
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+                  <span>සුරැකි පද (Bookmarks)</span>
+                  <Badge count={bookmarks.length} overflowCount={99} color="#fadb14" style={{ color: '#000', fontSize: '10px' }} />
+                </div>
+              )
+            },
+            {
+              type: "divider"
+            },
+            ...availableBooks.map(b => ({
+              key: b.code,
+              icon: <BookOutlined />,
+              label: b.name
+            }))
+          ]}
+        />
+      </div>
+
+      {/* Sider Footer Settings */}
+      <div style={{ 
+        padding: '16px 20px', 
+        borderTop: '1px solid var(--border-color)', 
+        display: 'flex', 
+        justifyContent: (collapsed && !isMobile) ? 'center' : 'space-between',
+        alignItems: 'center',
+        background: theme === 'dark' ? '#111827' : '#f7fafc'
+      }}>
+        {(!collapsed || isMobile) ? (
+          <>
+            <div style={{ display: 'flex', flexDirection: 'column' }}>
+              <Text type="secondary" style={{ fontSize: '10px' }}>සංසන්දන කේතය (Sync ID):</Text>
+              <Text strong style={{ fontSize: '13px', color: '#1890ff' }}>{syncId}</Text>
+            </div>
+            <Button 
+              type="primary" 
+              ghost 
+              size="small" 
+              icon={<SettingOutlined />} 
+              onClick={() => {
+                setSettingsVisible(true);
+                if (isMobile) setCollapsed(true);
+              }}
+            >
+              සිටුවම්
+            </Button>
+          </>
+        ) : (
+          <Button 
+            type="text" 
+            icon={<SettingOutlined />} 
+            onClick={() => setSettingsVisible(true)}
+          />
+        )}
+      </div>
+    </div>
+  );
+
   return (
     <ConfigProvider
       theme={{
@@ -454,36 +612,38 @@ export default function App() {
       }}
     >
       <Layout style={{ minHeight: '100vh' }}>
-        {/* Dynamic Header */}
+        {/* Responsive Header */}
         <Header style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, width: '100%' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '8px' : '12px' }}>
             <Button 
               type="text" 
               icon={collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />} 
               onClick={() => setCollapsed(!collapsed)} 
               style={{ fontSize: '16px', width: 40, height: 40 }}
             />
-            <img src={logo} alt="Bibalaya Logo" style={{ height: '36px', width: '36px', borderRadius: '8px', objectFit: 'cover' }} />
-            <Title level={4} style={{ margin: 0, fontWeight: 700, letterSpacing: '-0.02em', color: theme === 'dark' ? '#f8fafc' : '#2c3e50', display: 'flex', alignItems: 'center', gap: '6px' }}>
-              Bibalaya.com <span style={{ fontSize: '12px', opacity: 0.5, fontWeight: 400, marginTop: '4px', color: theme === 'dark' ? '#94a3b8' : '#718096' }}>ශුද්ධ වූ බයිබලය</span>
+            <img src={logo} alt="Bibalaya Logo" style={{ height: isMobile ? '32px' : '36px', width: isMobile ? '32px' : '36px', borderRadius: '8px', objectFit: 'cover' }} />
+            <Title level={isMobile ? 5 : 4} style={{ margin: 0, fontWeight: 700, letterSpacing: '-0.02em', color: theme === 'dark' ? '#f8fafc' : '#2c3e50', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              Bibalaya.com {!isMobile && <span style={{ fontSize: '12px', opacity: 0.5, fontWeight: 400, marginTop: '4px', color: theme === 'dark' ? '#94a3b8' : '#718096' }}>ශුද්ධ වූ බයිබලය</span>}
             </Title>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-            {/* Version Selector */}
-            <Space>
-              <TranslationOutlined style={{ color: '#718096' }} />
-              <Select 
-                value={version} 
-                onChange={(val) => setVersion(val)} 
-                style={{ width: 180 }}
-                dropdownStyle={{ borderRadius: '8px' }}
-                disabled={selectedBook === "bookmarks"}
-              >
-                <Select.Option value="2018">2018 නව සංශෝධිත</Select.Option>
-                <Select.Option value="ROV">පැරණි සංශෝධිත</Select.Option>
-              </Select>
-            </Space>
+          <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '8px' : '16px' }}>
+            {/* Version Selector (Desktop Only) */}
+            {!isMobile && (
+              <Space>
+                <TranslationOutlined style={{ color: '#718096' }} />
+                <Select 
+                  value={version} 
+                  onChange={(val) => setVersion(val)} 
+                  style={{ width: 180 }}
+                  dropdownStyle={{ borderRadius: '8px' }}
+                  disabled={selectedBook === "bookmarks"}
+                >
+                  <Select.Option value="2018">2018 නව සංශෝධිත</Select.Option>
+                  <Select.Option value="ROV">පැරණි සංශෝධිත</Select.Option>
+                </Select>
+              </Space>
+            )}
 
             {/* Theme Toggle Button */}
             <Tooltip title={theme === 'dark' ? "Light Mode" : "Dark Mode"}>
@@ -495,8 +655,8 @@ export default function App() {
               />
             </Tooltip>
 
-            {/* Search Scope */}
-            {searchActive && selectedBook !== "bookmarks" && (
+            {/* Search Scope (Desktop Only) */}
+            {!isMobile && searchActive && selectedBook !== "bookmarks" && (
               <Radio.Group 
                 value={searchScope} 
                 onChange={(e) => setSearchScope(e.target.value)}
@@ -509,8 +669,8 @@ export default function App() {
               </Radio.Group>
             )}
 
-            {/* Search Field */}
-            {selectedBook !== "bookmarks" && (
+            {/* Search Field (Desktop Only) */}
+            {!isMobile && selectedBook !== "bookmarks" && (
               <Input.Search 
                 placeholder="පද සොයන්න (Search)..." 
                 value={searchTerm}
@@ -524,99 +684,37 @@ export default function App() {
         </Header>
 
         <Layout>
-          {/* Books Sider */}
-          <Sider 
-            trigger={null} 
-            collapsible 
-            collapsed={collapsed} 
-            width={280} 
-            collapsedWidth={0}
-            style={{ 
-              height: 'calc(100vh - 70px)', 
-              position: 'sticky', 
-              top: 70
-            }}
-          >
-            <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-              <div className="sider-header">
-                <span><BookOutlined style={{ marginRight: '8px' }} />නාමාවලිය</span>
-              </div>
-
-              {/* Books Menu */}
-              <div style={{ flexGrow: 1, overflowY: 'auto' }}>
-                <Menu 
-                  mode="vertical" 
-                  selectedKeys={[selectedBook]}
-                  theme={theme}
-                  onClick={(info) => {
-                    setSelectedBook(info.key);
-                    if (info.key !== "bookmarks") {
-                      setSelectedChapter(1);
-                    }
-                    setSearchActive(false);
-                    setSearchTerm("");
-                  }}
-                  items={[
-                    {
-                      key: "bookmarks",
-                      icon: <StarFilled style={{ color: '#fadb14' }} />,
-                      label: (
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
-                          <span>සුරැකි පද (Bookmarks)</span>
-                          <Badge count={bookmarks.length} overflowCount={99} color="#fadb14" style={{ color: '#000', fontSize: '10px' }} />
-                        </div>
-                      )
-                    },
-                    {
-                      type: "divider"
-                    },
-                    ...availableBooks.map(b => ({
-                      key: b.code,
-                      icon: <BookOutlined />,
-                      label: b.name
-                    }))
-                  ]}
-                />
-              </div>
-
-              {/* Sider Footer Settings */}
-              <div style={{ 
-                padding: '16px 20px', 
-                borderTop: '1px solid var(--border-color)', 
-                display: 'flex', 
-                justifyContent: collapsed ? 'center' : 'space-between',
-                alignItems: 'center',
-                background: theme === 'dark' ? '#111827' : '#f7fafc'
-              }}>
-                {!collapsed ? (
-                  <>
-                    <div style={{ display: 'flex', flexDirection: 'column' }}>
-                      <Text type="secondary" style={{ fontSize: '10px' }}>සංසන්දන කේතය (Sync ID):</Text>
-                      <Text strong style={{ fontSize: '13px', color: '#1890ff' }}>{syncId}</Text>
-                    </div>
-                    <Button 
-                      type="primary" 
-                      ghost 
-                      size="small" 
-                      icon={<SettingOutlined />} 
-                      onClick={() => setSettingsVisible(true)}
-                    >
-                      සිටුවම්
-                    </Button>
-                  </>
-                ) : (
-                  <Button 
-                    type="text" 
-                    icon={<SettingOutlined />} 
-                    onClick={() => setSettingsVisible(true)}
-                  />
-                )}
-              </div>
-            </div>
-          </Sider>
+          {/* Books Drawer for Mobile, Sider for Desktop */}
+          {isMobile ? (
+            <Drawer
+              placement="left"
+              onClose={() => setCollapsed(true)}
+              open={!collapsed}
+              width={290}
+              headerStyle={{ display: 'none' }}
+              bodyStyle={{ padding: 0, height: '100%' }}
+            >
+              {renderSiderContent()}
+            </Drawer>
+          ) : (
+            <Sider 
+              trigger={null} 
+              collapsible 
+              collapsed={collapsed} 
+              width={280} 
+              collapsedWidth={0}
+              style={{ 
+                height: 'calc(100vh - 70px)', 
+                position: 'sticky', 
+                top: 70
+              }}
+            >
+              {renderSiderContent()}
+            </Sider>
+          )}
 
           {/* Main Content Area */}
-          <Content style={{ padding: 32, overflowY: 'auto', height: 'calc(100vh - 70px)' }}>
+          <Content style={{ padding: isMobile ? '16px' : '32px', overflowY: 'auto', height: 'calc(100vh - 70px)' }}>
             {loading ? (
               <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', height: '60vh', gap: '16px' }}>
                 <Spin indicator={antIcon} />
@@ -629,7 +727,7 @@ export default function App() {
                 {selectedBook === "bookmarks" ? (
                   <div>
                     <div className="hero-section" style={{ background: 'linear-gradient(135deg, #b91c1c 0%, #7f1d1d 100%)' }}>
-                      <Title level={2} style={{ color: 'white', margin: 0, display: 'flex', alignItems: 'center', gap: '12px' }}>
+                      <Title level={isMobile ? 3 : 2} style={{ color: 'white', margin: 0, display: 'flex', alignItems: 'center', gap: '12px' }}>
                         <StarFilled style={{ color: '#fadb14' }} /> සුරැකි පද (Saved Bookmarks)
                       </Title>
                       <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: '14px', display: 'block', marginTop: '6px' }}>
@@ -637,7 +735,7 @@ export default function App() {
                       </Text>
                     </div>
 
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                       {bookmarks.length > 0 ? (
                         bookmarks.map((b, i) => {
                           const bookName = booksData.find(book => book.code === b.book)?.name || b.book;
@@ -646,33 +744,35 @@ export default function App() {
                               key={i} 
                               className="verse-card animate-fade-in"
                               style={{ background: b.color }}
-                              bodyStyle={{ padding: '20px 24px' }}
+                              bodyStyle={isMobile ? { padding: '16px 18px' } : { padding: '20px 24px' }}
                             >
-                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
-                                <Text strong style={{ fontSize: '15px' }}>
-                                  {bookName} {b.chapter}:{b.verse} 
-                                  <span style={{ fontSize: '11px', opacity: 0.6, marginLeft: '8px', fontWeight: 400 }}>
-                                    ({b.version === '2018' ? '2018 නව සංශෝධිත' : 'පැරණි සංශෝධිත'})
-                                  </span>
-                                </Text>
-                                <Space>
-                                  <Button 
-                                    type="primary" 
-                                    size="small" 
-                                    onClick={() => handleJumpToVerse(b)}
-                                  >
-                                    කියවන්න (Read)
-                                  </Button>
-                                  <Button 
-                                    type="primary" 
-                                    danger 
-                                    size="small" 
-                                    icon={<DeleteOutlined />} 
-                                    onClick={() => handleRemoveBookmark(b.book, b.chapter, b.verse)}
-                                  />
-                                </Space>
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '8px' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+                                  <Text strong style={{ fontSize: '15px' }}>
+                                    {bookName} {b.chapter}:{b.verse} 
+                                    <span style={{ fontSize: '11px', opacity: 0.6, marginLeft: '8px', fontWeight: 400 }}>
+                                      ({b.version === '2018' ? '2018 නව' : 'පැරණි'})
+                                    </span>
+                                  </Text>
+                                  <Space>
+                                    <Button 
+                                      type="primary" 
+                                      size="small" 
+                                      onClick={() => handleJumpToVerse(b)}
+                                    >
+                                      කියවන්න
+                                    </Button>
+                                    <Button 
+                                      type="primary" 
+                                      danger 
+                                      size="small" 
+                                      icon={<DeleteOutlined />} 
+                                      onClick={() => handleRemoveBookmark(b.book, b.chapter, b.verse)}
+                                    />
+                                  </Space>
+                                </div>
                               </div>
-                              <Text className="verse-text" style={{ fontStyle: 'italic' }}>
+                              <Text className="verse-text" style={{ fontStyle: 'italic', display: 'block', marginTop: '4px' }}>
                                 "{b.text}"
                               </Text>
                             </Card>
@@ -682,11 +782,11 @@ export default function App() {
                         <Empty 
                           image={Empty.PRESENTED_IMAGE_SIMPLE} 
                           description={
-                            <span style={{ fontSize: '15px', color: '#718096' }}>
+                            <span style={{ fontSize: '14px', color: '#718096' }}>
                               තවමත් කිසිදු පදයක් සලකුණු කර නැත. කියවන විට පදයේ අංකය ක්ලික් කර පාටක් තෝරන්න.
                             </span>
                           }
-                          style={{ background: 'var(--card-bg)', padding: '64px', borderRadius: '12px', border: '1px solid var(--border-color)' }}
+                          style={{ background: 'var(--card-bg)', padding: '48px 24px', borderRadius: '12px', border: '1px solid var(--border-color)' }}
                         />
                       )}
                     </div>
@@ -698,54 +798,57 @@ export default function App() {
                     {/* Header Navigation card or Search result header */}
                     {searchActive ? (
                       <div className="hero-section" style={{ background: theme === 'dark' ? 'linear-gradient(135deg, #1e293b 0%, #0f172a 100%)' : 'linear-gradient(135deg, #1f4068 0%, #162447 100%)', border: theme === 'dark' ? '1px solid rgba(255, 255, 255, 0.08)' : 'none' }}>
-                        <Space style={{ display: 'flex', justifyContent: 'space-between', width: '100%', alignItems: 'center' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                           <div>
-                            <Title level={3} style={{ color: 'white', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <Title level={isMobile ? 4 : 3} style={{ color: 'white', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
                               <SearchOutlined /> සොයන පදය: "{searchTerm}"
                             </Title>
                             <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: '14px', display: 'block', marginTop: '6px' }}>
                               {searchScope === 'book' ? `${currentBookName} පොත තුළ` : 'මුළු බයිබලය පුරාම'}
                             </Text>
                           </div>
-                          <Button 
-                            type="primary" 
-                            danger 
-                            icon={<ClearOutlined />} 
-                            onClick={clearSearch}
-                            style={{ borderRadius: '8px' }}
-                          >
-                            සෙවීම අවසන් කරන්න
-                          </Button>
-                        </Space>
-                        <div style={{ marginTop: '16px', background: 'rgba(255,255,255,0.1)', padding: '8px 16px', borderRadius: '6px', display: 'inline-block' }}>
-                          <Text style={{ color: 'white', fontWeight: 600 }}>
-                            සම්පූර්ණ ප්‍රතිඵල: {displayedVerses.length}
-                          </Text>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '4px' }}>
+                            <div style={{ background: 'rgba(255,255,255,0.1)', padding: '6px 12px', borderRadius: '6px' }}>
+                              <Text style={{ color: 'white', fontWeight: 600, fontSize: '12px' }}>
+                                ප්‍රතිඵල: {displayedVerses.length}
+                              </Text>
+                            </div>
+                            <Button 
+                              type="primary" 
+                              danger 
+                              size="small"
+                              icon={<ClearOutlined />} 
+                              onClick={clearSearch}
+                              style={{ borderRadius: '6px' }}
+                            >
+                              සෙවීම අවසන් කරන්න
+                            </Button>
+                          </div>
                         </div>
                       </div>
                     ) : (
                       <div className="hero-section" style={{ background: theme === 'dark' ? 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)' : 'linear-gradient(135deg, #1e3c72 0%, #2a5298 100%)' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', flexDirection: isMobile ? 'column' : 'row', gap: isMobile ? '16px' : '0px', alignItems: isMobile ? 'stretch' : 'center' }}>
                           <div>
-                            <Title level={2} style={{ color: 'white', margin: 0, fontWeight: 700 }}>
+                            <Title level={isMobile ? 3 : 2} style={{ color: 'white', margin: 0, fontWeight: 700, textAlign: isMobile ? 'center' : 'left' }}>
                               {currentBookName}
                             </Title>
-                            <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: '15px', display: 'block', marginTop: '4px' }}>
+                            <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: '14px', display: 'block', marginTop: '4px', textAlign: isMobile ? 'center' : 'left' }}>
                               පරිච්ඡේදය: {selectedChapter} / {totalChapters}
                             </Text>
                           </div>
-                          <Space size="middle">
+                          <Space size="middle" style={{ justifyContent: isMobile ? 'center' : 'flex-end' }}>
                             <Button 
                               disabled={selectedBook === availableBooks[0]?.code && selectedChapter === 1}
                               onClick={handlePrevChapter} 
-                              style={{ background: 'rgba(255,255,255,0.15)', border: 'none', color: 'white', height: '40px', borderRadius: '8px' }}
+                              style={{ background: 'rgba(255,255,255,0.15)', border: 'none', color: 'white', height: '36px', borderRadius: '8px' }}
                             >
                               පෙර පරිච්ඡේදය
                             </Button>
                             <Button 
                               disabled={selectedBook === availableBooks[availableBooks.length - 1]?.code && selectedChapter === totalChapters}
                               onClick={handleNextChapter} 
-                              style={{ background: 'rgba(255,255,255,0.25)', border: 'none', color: 'white', height: '40px', borderRadius: '8px', fontWeight: 600 }}
+                              style={{ background: 'rgba(255,255,255,0.25)', border: 'none', color: 'white', height: '36px', borderRadius: '8px', fontWeight: 600 }}
                             >
                               ඊළඟ පරිච්ඡේදය
                             </Button>
@@ -778,11 +881,11 @@ export default function App() {
                         displayedVerses.slice(0, 150).map((v, i) => {
                           const bookName = booksData.find(b => b.code === v.book)?.name || v.book;
                           
-                          // Check if this verse is highlighted
+                          // Check if highlighted
                           const hl = bookmarks.find(b => b.book === v.book && b.chapter === v.chapter && b.verse === v.verse);
-                          const cardStyle = hl ? { background: hl.color, borderLeft: '5px solid #1890ff' } : {};
+                          const cardStyle = hl ? { background: hl.color, borderLeft: '4px solid #1890ff' } : {};
                           
-                          // Color Selector Popover Content
+                          // Popover Color selector
                           const popoverContent = (
                             <div style={{ width: '220px' }}>
                               <Text strong style={{ display: 'block', marginBottom: '8px', fontSize: '12px' }}>පදය පාට කරන්න (Highlight Color):</Text>
@@ -795,7 +898,7 @@ export default function App() {
                                       width: '28px', 
                                       height: '28px', 
                                       borderRadius: '50%', 
-                                      background: c.hsl.replace('0.3', '0.9').replace('0.35', '0.9'), // solid preview color
+                                      background: c.hsl.replace('0.3', '0.9').replace('0.35', '0.9'),
                                       border: hl && hl.color === c.hsl ? '2.5px solid #1890ff' : '1px solid rgba(0,0,0,0.15)',
                                       cursor: 'pointer',
                                       boxShadow: 'inset 0 1px 3px rgba(0,0,0,0.1)',
@@ -826,7 +929,7 @@ export default function App() {
                               key={i} 
                               className="verse-card animate-fade-in" 
                               style={cardStyle}
-                              bodyStyle={{ padding: '20px 24px' }}
+                              bodyStyle={isMobile ? { padding: '16px 18px' } : { padding: '20px 24px' }}
                               id={`v-${v.verse}`}
                             >
                               <Paragraph style={{ margin: 0, display: 'flex', alignItems: 'flex-start' }}>
@@ -846,11 +949,11 @@ export default function App() {
                         <Empty 
                           image={Empty.PRESENTED_IMAGE_SIMPLE} 
                           description={
-                            <span style={{ fontSize: '15px', color: '#718096' }}>
+                            <span style={{ fontSize: '14px', color: '#718096' }}>
                               {searchActive ? 'පද කිසිවක් සොයාගත නොහැකි විය.' : 'මෙම පරිච්ඡේදය සඳහා දත්ත නොමැත.'}
                             </span>
                           } 
-                          style={{ background: 'var(--card-bg)', padding: '64px', borderRadius: '12px', border: '1px solid var(--border-color)' }}
+                          style={{ background: 'var(--card-bg)', padding: '48px 24px', borderRadius: '12px', border: '1px solid var(--border-color)' }}
                         >
                           {searchActive && (
                             <Button type="primary" onClick={clearSearch}>සෙවීම ඉවත් කරන්න</Button>
@@ -871,13 +974,13 @@ export default function App() {
 
                     {/* Navigation footer */}
                     {!searchActive && (
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '32px', padding: '16px 0', borderTop: '1px solid var(--border-color)' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '32px', padding: '16px 0', borderTop: '1px solid var(--border-color)', flexDirection: isMobile ? 'column' : 'row', gap: isMobile ? '16px' : '0px' }}>
                         <Button 
                           disabled={selectedBook === availableBooks[0]?.code && selectedChapter === 1}
                           onClick={handlePrevChapter} 
                           icon={<ClearOutlined rotate={180} />}
                           size="large"
-                          style={{ borderRadius: '8px' }}
+                          style={{ borderRadius: '8px', width: isMobile ? '100%' : 'auto' }}
                         >
                           පෙර පරිච්ඡේදය
                         </Button>
@@ -889,7 +992,7 @@ export default function App() {
                           onClick={handleNextChapter} 
                           icon={<ClearOutlined />}
                           size="large"
-                          style={{ borderRadius: '8px' }}
+                          style={{ borderRadius: '8px', width: isMobile ? '100%' : 'auto' }}
                         >
                           ඊළඟ පරිච්ඡේදය
                         </Button>
@@ -907,17 +1010,17 @@ export default function App() {
       <Drawer
         title={
           <Title level={4} style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <SettingOutlined /> සිටුවම් සහ දත්ත සංසන්දනය (Settings & Sync)
+            <SettingOutlined /> සිටුවම් සහ දත්ත සංසන්දනය
           </Title>
         }
         placement="right"
-        width={500}
+        width={isMobile ? '100%' : 500}
         onClose={() => setSettingsVisible(false)}
         open={settingsVisible}
-        bodyStyle={{ padding: '24px' }}
+        bodyStyle={{ padding: isMobile ? '16px' : '24px' }}
       >
-        <Paragraph type="secondary">
-          ඔබ විසින් පාට කරන ලද බයිබල් පද (bookmarks) වෙනත් උපාංග සමඟ (ජංගම දුරකථන, ටැබ් හෝ පරිගණක) සජීවීව සංසන්දනය (sync) කිරීම සඳහා මෙහි ඇති Google Sheets පහසුකම භාවිතා කරන්න.
+        <Paragraph type="secondary" style={{ fontSize: '13px' }}>
+          ඔබ විසින් පාට කරන ලද බයිබල් පද වෙනත් උපාංග සමඟ සජීවීව සංසන්දනය (sync) කිරීම සඳහා Google Sheets පහසුකම භාවිතා කරන්න.
         </Paragraph>
         
         <Divider style={{ margin: '12px 0' }} />
@@ -938,7 +1041,7 @@ export default function App() {
               }
             />
             <Text type="secondary" style={{ fontSize: '11px', marginTop: '4px', display: 'block' }}>
-              *ඔබගේ වෙනත් උපාංගයටද මෙම කේතයම (Sync Key) ඇතුලත් කිරීමෙන් එම උපාංග දෙක අතර දත්ත සජීවීව සංසන්දනය වේ.
+              *වෙනත් උපාංගයකටද මෙම කේතයම (Sync Key) ඇතුලත් කිරීමෙන් උපාංග අතර දත්ත සජීවීව සංසන්දනය වේ.
             </Text>
           </div>
 
@@ -968,24 +1071,23 @@ export default function App() {
 
         <Divider />
 
-        {/* Step-by-Step Instructions */}
         <Title level={5} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <InfoCircleOutlined style={{ color: '#1890ff' }} /> Google Sheets සැකසීමේ පියවර (Setup Steps)
+          <InfoCircleOutlined style={{ color: '#1890ff' }} /> Google Sheets සැකසීමේ පියවර
         </Title>
         
         <Collapse ghost style={{ marginTop: '12px' }}>
           <Collapse.Panel header="1. Google Sheet එකක් සාදා ගන්න" key="step1">
-            <Paragraph>
-              1. ඔබගේ Google ගිණුමට ගොස් නව **Google Sheet (Spreadsheet)** එකක් සාදන්න.<br />
-              2. එහි පළමු පේළියේ (Header row) කිසිවක් ලියන්න එපා. Script එක මඟින් ස්වයංක්‍රීයව හෙඩර්ස් එකතු කරනු ඇත.
+            <Paragraph style={{ fontSize: '13px' }}>
+              1. ඔබගේ Google ගිණුමට ගොස් නව **Google Sheet** එකක් සාදන්න.<br />
+              2. එහි පළමු පේළියේ කිසිවක් ලියන්න එපා.
             </Paragraph>
           </Collapse.Panel>
 
-          <Collapse.Panel header="2. Apps Script කේතය (Code) ඇතුලත් කරන්න" key="step2">
-            <Paragraph>
-              1. Google Sheet එකෙහි ඉහළ මෙනුවේ **Extensions -> Apps Script** යන්න ක්ලික් කරන්න.<br />
-              2. එහි ඇති පෙරනිමි කේතය ඉවත් කර, පහත දැක්වෙන සම්පූර්ණ කේතය (Script Code) පිටපත් කර එහි අලවන්න (Paste).<br />
-              3. ඉන්පසු Save (කදම්බ සංකේතය) කරන්න.
+          <Collapse.Panel header="2. Apps Script කේතය ඇතුලත් කරන්න" key="step2">
+            <Paragraph style={{ fontSize: '13px' }}>
+              1. Google Sheet එකෙහි **Extensions -> Apps Script** යන්න ක්ලික් කරන්න.<br />
+              2. එහි ඇති කේතය ඉවත් කර, පහත දැක්වෙන සම්පූර්ණ කේතය එහි අලවන්න.<br />
+              3. Save කරන්න.
             </Paragraph>
             
             <div style={{ background: '#1e293b', padding: '12px', borderRadius: '8px', marginBottom: '12px', position: 'relative' }}>
@@ -995,20 +1097,20 @@ export default function App() {
                 onClick={() => handleCopyText(appsScriptCode)} 
                 style={{ position: 'absolute', top: 8, right: 8 }}
               />
-              <pre style={{ margin: 0, fontSize: '11px', color: '#f8fafc', maxHeight: '200px', overflowY: 'auto' }}>
+              <pre style={{ margin: 0, fontSize: '11px', color: '#f8fafc', maxHeight: '180px', overflowY: 'auto' }}>
                 {appsScriptCode}
               </pre>
             </div>
           </Collapse.Panel>
 
           <Collapse.Panel header="3. Web App එකක් ලෙස Deploy කරන්න" key="step3">
-            <Paragraph>
-              1. Apps Script පිටුවේ ඉහළ දකුණු කෙළවරේ ඇති **Deploy -> New deployment** යන්න ක්ලික් කරන්න.<br />
-              2. Select type (ගියර් සංකේතය) මඟින් **Web app** යන්න තෝරන්න.<br />
-              3. **Execute as**: `Me (ඔබගේ Google ලිපිනය)` ලෙස තෝරන්න.<br />
-              4. **Who has access**: `Anyone` ලෙස අනිවාර්යයෙන්ම තෝරන්න (එසේ නැතහොත් වෙබ් අඩවියට දත්ත ලිවීමට නොහැකි වනු ඇත).<br />
+            <Paragraph style={{ fontSize: '13px' }}>
+              1. Apps Script පිටුවේ **Deploy -> New deployment** ක්ලික් කරන්න.<br />
+              2. select type මඟින් **Web app** තෝරන්න.<br />
+              3. **Execute as**: `Me` ලෙස තෝරන්න.<br />
+              4. **Who has access**: `Anyone` ලෙස තෝරන්න.<br />
               5. **Deploy** ක්ලික් කර, අවශ්‍ය නම් Access Permission ලබා දෙන්න.<br />
-              6. ලැබෙන **Web app URL** එක පිටපත් කරගෙන පැමිණ ඉහත ඇති "Google Apps Script API URL" කොටුවෙහි අලවා සේව් කරන්න.
+              6. ලැබෙන **Web app URL** එක පිටපත් කරගෙන පැමිණ ඉහත ඇති URL කොටුවේ අලවන්න.
             </Paragraph>
           </Collapse.Panel>
         </Collapse>
