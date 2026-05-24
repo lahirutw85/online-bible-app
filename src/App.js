@@ -176,6 +176,12 @@ export default function App() {
   const [searchActive, setSearchActive] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   
+  // Compare mode states
+  const [compareMode, setCompareMode] = useState(false);
+  const [compareVersion, setCompareVersion] = useState("KJV");
+  const [compareBibleData, setCompareBibleData] = useState([]);
+  const [compareLoading, setCompareLoading] = useState(false);
+  
   // Theme state
   const [theme, setTheme] = useState(() => localStorage.getItem("bible-theme") || "light");
 
@@ -307,6 +313,54 @@ export default function App() {
       });
   }, [version]);
 
+  // Lazy load Compare Bible data when compareVersion or compareMode changes
+  useEffect(() => {
+    if (!compareMode) return;
+    setCompareLoading(true);
+    let dataPromise;
+    switch (compareVersion) {
+      case '2018':
+        dataPromise = import('./data/sinnrv2018.json');
+        break;
+      case 'KJV':
+        dataPromise = import('./data/kjv.json');
+        break;
+      case 'ASV':
+        dataPromise = import('./data/asv.json');
+        break;
+      case 'BBE':
+        dataPromise = import('./data/bbe.json');
+        break;
+      case 'SpaRV':
+        dataPromise = import('./data/sparv.json');
+        break;
+      case 'FreBBB':
+        dataPromise = import('./data/frebbb.json');
+        break;
+      case 'GerBoLut':
+        dataPromise = import('./data/gerbolut.json');
+        break;
+      default:
+        dataPromise = import('./data/sirov.json');
+    }
+
+    dataPromise
+      .then((module) => {
+        const mapped = module.default.map(v => ({
+          book: v.b,
+          chapter: v.c,
+          verse: v.v,
+          text: v.t
+        }));
+        setCompareBibleData(mapped);
+        setCompareLoading(false);
+      })
+      .catch((err) => {
+        console.error("Failed to load compare Bible version:", err);
+        setCompareLoading(false);
+      });
+  }, [compareVersion, compareMode]);
+
   // Get active books list based on active version language
   const activeBooks = useMemo(() => {
     switch (version) {
@@ -403,7 +457,10 @@ export default function App() {
         noVersesForChapter: "මෙම පරිච්ඡේදය සඳහා දත්ත නොමැත.",
         searchNoResults: "පද කිසිවක් සොයාගත නොහැකි විය.",
         clearSearch: "සෙවීම ඉවත් කරන්න",
-        searchLimitNotice: "සෙවුම් ප්‍රතිඵල ඉතා විශාල බැවින් පළමු පද 150 පමණක් පෙන්වනු ලැබේ."
+        searchLimitNotice: "සෙවුම් ප්‍රතිඵල ඉතා විශාල බැවින් පළමු පද 150 පමණක් පෙන්වනු ලැබේ.",
+        compareModeActive: "සංසන්දනය අක්‍රිය කරන්න",
+        compareModeInactive: "සංසන්දනය (Compare)",
+        compareVersionLabel: "සංසන්දනය කරන පරිවර්තනය (Compare Version):"
       },
       en: {
         subtitle: "Holy Bible",
@@ -436,7 +493,10 @@ export default function App() {
         noVersesForChapter: "No data available for this chapter.",
         searchNoResults: "No matching verses found.",
         clearSearch: "Clear Search",
-        searchLimitNotice: "Due to large search results, only the first 150 verses are shown."
+        searchLimitNotice: "Due to large search results, only the first 150 verses are shown.",
+        compareModeActive: "Disable Compare",
+        compareModeInactive: "Compare Versions",
+        compareVersionLabel: "Compare Version:"
       },
       es: {
         subtitle: "Santa Biblia",
@@ -469,7 +529,10 @@ export default function App() {
         noVersesForChapter: "No hay datos disponibles para este capítulo.",
         searchNoResults: "No se encontraron versículos coincidentes.",
         clearSearch: "Limpiar búsqueda",
-        searchLimitNotice: "Debido a los grandes resultados de búsqueda, solo se muestran los primeros 150 versículos."
+        searchLimitNotice: "Debido a los grandes resultados de búsqueda, solo se muestran los primeros 150 versículos.",
+        compareModeActive: "Desactivar comparación",
+        compareModeInactive: "Comparar versiones",
+        compareVersionLabel: "Comparar con:"
       },
       fr: {
         subtitle: "Sainte Bible",
@@ -502,7 +565,10 @@ export default function App() {
         noVersesForChapter: "Aucune donnée disponible pour ce chapitre.",
         searchNoResults: "Aucun verset correspondant trouvé.",
         clearSearch: "Effacer la recherche",
-        searchLimitNotice: "En raison du grand nombre de résultats, seuls les 150 premiers versets sont affichés."
+        searchLimitNotice: "En raison du grand nombre de résultats, seuls les 150 premiers versets sont affichés.",
+        compareModeActive: "Désactiver la comparaison",
+        compareModeInactive: "Comparer les versions",
+        compareVersionLabel: "Comparer avec:"
       },
       de: {
         subtitle: "Heilige Bibel",
@@ -535,7 +601,10 @@ export default function App() {
         noVersesForChapter: "Keine Daten für dieses Kapitel verfügbar.",
         searchNoResults: "Keine passenden Verse gefunden.",
         clearSearch: "Suche löschen",
-        searchLimitNotice: "Aufgrund der großen Suchergebnisse werden nur die ersten 150 Verse angezeigt."
+        searchLimitNotice: "Aufgrund der großen Suchergebnisse werden nur die ersten 150 Verse angezeigt.",
+        compareModeActive: "Vergleich deaktivieren",
+        compareModeInactive: "Versionen vergleichen",
+        compareVersionLabel: "Vergleichen mit:"
       }
     };
     return strings[lang]?.[key] || strings.si[key] || key;
@@ -755,6 +824,15 @@ export default function App() {
       {isMobile && (
         <div style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: '12px', borderBottom: '1px solid var(--border-color)', background: theme === 'dark' ? '#111827' : '#f7fafc' }}>
           <div>
+            <Button 
+              type={compareMode ? "primary" : "default"}
+              size="small"
+              icon={<TranslationOutlined />}
+              onClick={() => setCompareMode(!compareMode)}
+              style={{ width: '100%', marginBottom: '12px', borderRadius: '8px' }}
+            >
+              {compareMode ? t('compareModeActive') : t('compareModeInactive')}
+            </Button>
             <Text type="secondary" style={{ fontSize: '11px', display: 'block', marginBottom: '4px' }}>{t('versionLabel')}</Text>
             <Select 
               value={version} 
@@ -770,6 +848,26 @@ export default function App() {
                 <Select.Option key={v.value} value={v.value}>{v.label}</Select.Option>
               ))}
             </Select>
+
+            {compareMode && (
+              <div style={{ marginTop: '8px' }}>
+                <Text type="secondary" style={{ fontSize: '11px', display: 'block', marginBottom: '4px' }}>{t('compareVersionLabel')}</Text>
+                <Select 
+                  value={compareVersion} 
+                  onChange={(val) => {
+                    setCompareVersion(val);
+                    setCollapsed(true); // auto-collapse sidebar drawer on mobile
+                  }} 
+                  style={{ width: '100%' }}
+                  dropdownStyle={{ borderRadius: '8px' }}
+                  disabled={selectedBook === "bookmarks"}
+                >
+                  {versionsList.map(v => (
+                    <Select.Option key={v.value} value={v.value}>{v.label}</Select.Option>
+                  ))}
+                </Select>
+              </div>
+            )}
           </div>
           <div>
             <Text type="secondary" style={{ fontSize: '11px', display: 'block', marginBottom: '4px' }}>{t('searchLabel')}</Text>
@@ -918,11 +1016,18 @@ export default function App() {
           <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '8px' : '16px' }}>
             {!isMobile && (
               <Space>
-                <TranslationOutlined style={{ color: '#718096' }} />
+                <Button 
+                  type={compareMode ? "primary" : "default"}
+                  icon={<TranslationOutlined />}
+                  onClick={() => setCompareMode(!compareMode)}
+                >
+                  {compareMode ? t('compareModeActive') : t('compareModeInactive')}
+                </Button>
+                
                 <Select 
                   value={version} 
                   onChange={(val) => setVersion(val)} 
-                  style={{ width: 280 }}
+                  style={{ width: compareMode ? 200 : 280 }}
                   dropdownStyle={{ borderRadius: '8px' }}
                   disabled={selectedBook === "bookmarks"}
                 >
@@ -930,6 +1035,20 @@ export default function App() {
                     <Select.Option key={v.value} value={v.value}>{v.label}</Select.Option>
                   ))}
                 </Select>
+
+                {compareMode && (
+                  <Select 
+                    value={compareVersion} 
+                    onChange={(val) => setCompareVersion(val)} 
+                    style={{ width: 200 }}
+                    dropdownStyle={{ borderRadius: '8px' }}
+                    disabled={selectedBook === "bookmarks"}
+                  >
+                    {versionsList.map(v => (
+                      <Select.Option key={v.value} value={v.value}>{v.label}</Select.Option>
+                    ))}
+                  </Select>
+                )}
               </Space>
             )}
 
@@ -1003,7 +1122,7 @@ export default function App() {
 
           {/* Main Content Area */}
           <Content style={{ padding: isMobile ? '16px' : '32px', overflowY: 'auto', height: 'calc(100vh - 70px)' }}>
-            {loading ? (
+            {loading || (compareMode && compareLoading) ? (
               <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', height: '60vh', gap: '16px' }}>
                 <Spin indicator={antIcon} />
                 <Text type="secondary" style={{ fontSize: '15px' }}>{t('loadingText')}</Text>
@@ -1163,6 +1282,29 @@ export default function App() {
                       </div>
                     )}
 
+                    {/* Compare mode column headers */}
+                    {compareMode && !searchActive && displayedVerses.length > 0 && !isMobile && (
+                      <div style={{ 
+                        display: 'flex', 
+                        gap: '24px', 
+                        padding: '12px 24px', 
+                        background: theme === 'dark' ? '#1e293b' : '#e6f7ff', 
+                        borderRadius: '12px', 
+                        marginBottom: '16px', 
+                        fontWeight: 600,
+                        border: '1px solid var(--border-color)',
+                        fontSize: '14px',
+                        color: 'var(--accent-color)'
+                      }}>
+                        <div style={{ flex: 1, textAlign: 'center', borderRight: '1px solid var(--border-color)', paddingRight: '16px' }}>
+                          {versionsList.find(x => x.value === version)?.label || version}
+                        </div>
+                        <div style={{ flex: 1, textAlign: 'center' }}>
+                          {versionsList.find(x => x.value === compareVersion)?.label || compareVersion}
+                        </div>
+                      </div>
+                    )}
+
                     {/* Verses rendering */}
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                       {displayedVerses.length > 0 ? (
@@ -1173,6 +1315,13 @@ export default function App() {
                           const hl = bookmarks.find(b => b.book === v.book && b.chapter === v.chapter && b.verse === v.verse);
                           const cardStyle = hl ? { background: hl.color, borderLeft: '4px solid #1890ff' } : {};
                           
+                          // Find compare verse if in compare mode
+                          let compareVerse = null;
+                          if (compareMode) {
+                            compareVerse = compareBibleData.find(cv => cv.book === v.book && cv.chapter === v.chapter && cv.verse === v.verse);
+                          }
+                          const compareText = compareVerse ? compareVerse.text : "...";
+
                           // Popover Color selector
                           const popoverContent = (
                             <div style={{ width: '220px' }}>
@@ -1212,14 +1361,70 @@ export default function App() {
                             </div>
                           );
 
-                          return (
-                            <Card 
-                              key={i} 
-                              className="verse-card animate-fade-in" 
-                              style={cardStyle}
-                              bodyStyle={isMobile ? { padding: '16px 18px' } : { padding: '20px 24px' }}
-                              id={`v-${v.verse}`}
-                            >
+                          const renderCardContent = () => {
+                            if (compareMode && !isMobile) {
+                              return (
+                                <div style={{ display: 'flex', gap: '24px' }}>
+                                  <div style={{ flex: 1, borderRight: '1px solid var(--border-color)', paddingRight: '16px' }}>
+                                    <Paragraph style={{ margin: 0, display: 'flex', alignItems: 'flex-start' }}>
+                                      <Popover content={popoverContent} trigger="click" placement="bottomLeft">
+                                        <span className="verse-number" style={{ cursor: 'pointer' }}>
+                                          {searchActive ? `${bookName} ${v.chapter}:${v.verse}` : `${v.verse}`}
+                                        </span>
+                                      </Popover>
+                                      <span className="verse-text">
+                                        {searchActive ? renderHighlightedText(v.text, searchTerm) : v.text}
+                                      </span>
+                                    </Paragraph>
+                                  </div>
+                                  <div style={{ flex: 1 }}>
+                                    <Paragraph style={{ margin: 0, display: 'flex', alignItems: 'flex-start' }}>
+                                      <span className="verse-number" style={{ background: 'rgba(0,0,0,0.05)', color: 'var(--text-secondary)' }}>
+                                        {searchActive ? `${bookName} ${v.chapter}:${v.verse}` : `${v.verse}`}
+                                      </span>
+                                      <span className="verse-text">
+                                        {searchActive ? renderHighlightedText(compareText, searchTerm) : compareText}
+                                      </span>
+                                    </Paragraph>
+                                  </div>
+                                </div>
+                              );
+                            }
+                            
+                            if (compareMode && isMobile) {
+                              return (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                  <div>
+                                    <Paragraph style={{ margin: 0, display: 'flex', alignItems: 'flex-start' }}>
+                                      <Popover content={popoverContent} trigger="click" placement="bottomLeft">
+                                        <span className="verse-number" style={{ cursor: 'pointer' }}>
+                                          {searchActive ? `${bookName} ${v.chapter}:${v.verse}` : `${v.verse}`}
+                                        </span>
+                                      </Popover>
+                                      <span className="verse-text">
+                                        {searchActive ? renderHighlightedText(v.text, searchTerm) : v.text}
+                                      </span>
+                                    </Paragraph>
+                                  </div>
+                                  <div style={{ 
+                                    paddingTop: '8px', 
+                                    borderTop: '1px dashed var(--border-color)',
+                                    opacity: 0.85
+                                  }}>
+                                    <Paragraph style={{ margin: 0, display: 'flex', alignItems: 'flex-start' }}>
+                                      <span className="verse-number" style={{ background: 'rgba(24, 144, 255, 0.08)', color: 'var(--accent-color)', fontSize: '10px', padding: '1px 5px' }}>
+                                        {compareVersion}
+                                      </span>
+                                      <span className="verse-text" style={{ fontStyle: 'italic', opacity: 0.9 }}>
+                                        {searchActive ? renderHighlightedText(compareText, searchTerm) : compareText}
+                                      </span>
+                                    </Paragraph>
+                                  </div>
+                                </div>
+                              );
+                            }
+
+                            return (
                               <Paragraph style={{ margin: 0, display: 'flex', alignItems: 'flex-start' }}>
                                 <Popover content={popoverContent} trigger="click" placement="bottomLeft">
                                   <span className="verse-number" style={{ cursor: 'pointer' }}>
@@ -1230,6 +1435,18 @@ export default function App() {
                                   {searchActive ? renderHighlightedText(v.text, searchTerm) : v.text}
                                 </span>
                               </Paragraph>
+                            );
+                          };
+
+                          return (
+                            <Card 
+                              key={i} 
+                              className="verse-card animate-fade-in" 
+                              style={cardStyle}
+                              bodyStyle={isMobile ? { padding: '16px 18px' } : { padding: '20px 24px' }}
+                              id={`v-${v.verse}`}
+                            >
+                              {renderCardContent()}
                             </Card>
                           );
                         })
