@@ -41,10 +41,25 @@ import {
   CopyOutlined
 } from '@ant-design/icons';
 import booksData from './data/books.json';
+import booksDataEn from './data/books_en.json';
+import booksDataEs from './data/books_es.json';
+import booksDataFr from './data/books_fr.json';
+import booksDataDe from './data/books_de.json';
 import logo from './logo.jpg';
 
 const { Header, Sider, Content } = Layout;
 const { Title, Text, Paragraph } = Typography;
+
+const versionsList = [
+  { value: "ROV", label: "පැරණි සංශෝධිත (Sinhala)" },
+  { value: "2018", label: "2018 නව සංශෝධිත (Sinhala)" },
+  { value: "KJV", label: "King James Version (English)" },
+  { value: "ASV", label: "American Standard Version (English)" },
+  { value: "BBE", label: "Bible in Basic English (English)" },
+  { value: "SpaRV", label: "Reina-Valera 1909 (Spanish)" },
+  { value: "FreBBB", label: "Bovet Bonnet 1900 (French)" },
+  { value: "GerBoLut", label: "Luther 1545 (German)" }
+];
 
 const antIcon = <LoadingOutlined style={{ fontSize: 32 }} spin />;
 
@@ -248,9 +263,32 @@ export default function App() {
   // Lazy load Bible data when version changes
   useEffect(() => {
     setLoading(true);
-    const dataPromise = version === '2018'
-      ? import('./data/sinnrv2018.json')
-      : import('./data/sirov.json');
+    let dataPromise;
+    switch (version) {
+      case '2018':
+        dataPromise = import('./data/sinnrv2018.json');
+        break;
+      case 'KJV':
+        dataPromise = import('./data/kjv.json');
+        break;
+      case 'ASV':
+        dataPromise = import('./data/asv.json');
+        break;
+      case 'BBE':
+        dataPromise = import('./data/bbe.json');
+        break;
+      case 'SpaRV':
+        dataPromise = import('./data/sparv.json');
+        break;
+      case 'FreBBB':
+        dataPromise = import('./data/frebbb.json');
+        break;
+      case 'GerBoLut':
+        dataPromise = import('./data/gerbolut.json');
+        break;
+      default:
+        dataPromise = import('./data/sirov.json');
+    }
 
     dataPromise
       .then((module) => {
@@ -269,12 +307,246 @@ export default function App() {
       });
   }, [version]);
 
+  // Get active books list based on active version language
+  const activeBooks = useMemo(() => {
+    switch (version) {
+      case 'KJV':
+      case 'ASV':
+      case 'BBE':
+        return booksDataEn;
+      case 'SpaRV':
+        return booksDataEs;
+      case 'FreBBB':
+        return booksDataFr;
+      case 'GerBoLut':
+        return booksDataDe;
+      default:
+        return booksData;
+    }
+  }, [version]);
+
+  // Get book name for a specific code and version language
+  const getBookName = useCallback((bookCode, forVersion) => {
+    let bookSet = booksData;
+    switch (forVersion) {
+      case 'KJV':
+      case 'ASV':
+      case 'BBE':
+        bookSet = booksDataEn;
+        break;
+      case 'SpaRV':
+        bookSet = booksDataEs;
+        break;
+      case 'FreBBB':
+        bookSet = booksDataFr;
+        break;
+      case 'GerBoLut':
+        bookSet = booksDataDe;
+        break;
+      default:
+        bookSet = booksData;
+    }
+    const book = bookSet.find(b => b.code === bookCode);
+    return book ? book.name : bookCode;
+  }, []);
+
+  // Get language code for active version
+  const getLanguage = useCallback(() => {
+    switch (version) {
+      case 'KJV':
+      case 'ASV':
+      case 'BBE':
+        return 'en';
+      case 'SpaRV':
+        return 'es';
+      case 'FreBBB':
+        return 'fr';
+      case 'GerBoLut':
+        return 'de';
+      default:
+        return 'si';
+    }
+  }, [version]);
+
+  // Translate UI strings to active language
+  const t = useCallback((key) => {
+    const lang = getLanguage();
+    const strings = {
+      si: {
+        subtitle: "ශුද්ධ වූ බයිබලය",
+        index: "නාමාවලිය",
+        bookmarks: "සුරැකි පද (Bookmarks)",
+        syncKey: "සංසන්දන කේතය (Sync ID):",
+        settings: "සිටුවම්",
+        searchPlaceholder: "පද සොයන්න (Search)...",
+        versionLabel: "පරිවර්තනය (Version):",
+        searchLabel: "පද සෙවීම (Search):",
+        searchScopeLabel: "සෙවුම් සීමාව (Search Scope):",
+        allBooks: "සියලු පොත්",
+        thisBook: "මෙම පොතෙන්",
+        previousChapter: "පෙර පරිච්ඡේදය",
+        nextChapter: "ඊළඟ පරිච්ඡේදය",
+        chapterLabel: "පරිච්ඡේදය",
+        loadingText: "දත්ත පූරණය වෙමින් පවතී. කරුණාකර රැඳී සිටින්න...",
+        savedBookmarksTitle: "සුරැකි පද (Saved Bookmarks)",
+        savedBookmarksDesc: "ඔබ විසින් පාට කර සලකුණු කරන ලද බයිබල් පද මෙහි දැක්වේ.",
+        readButton: "කියවන්න",
+        noBookmarks: "තවමත් කිසිදු පදයක් සලකුණු කර නැත. කියවන විට පදයේ අංකය ක්ලික් කර පාටක් තෝරන්න.",
+        searchResultTitle: "සොයන පදය",
+        globalSearchScope: "මුළු බයිබලය පුරාම",
+        bookSearchScope: "පොත තුළ",
+        resultsCount: "ප්‍රතිඵල",
+        clearSearchButton: "සෙවීම අවසන් කරන්න",
+        selectChapterLabel: "පරිච්ඡේදය තෝරන්න (Select Chapter):",
+        highlightPopoverTitle: "පදය පාට කරන්න (Highlight Color):",
+        clearHighlightButton: "පාට ඉවත් කරන්න (Clear)",
+        noVersesForChapter: "මෙම පරිච්ඡේදය සඳහා දත්ත නොමැත.",
+        searchNoResults: "පද කිසිවක් සොයාගත නොහැකි විය.",
+        clearSearch: "සෙවීම ඉවත් කරන්න",
+        searchLimitNotice: "සෙවුම් ප්‍රතිඵල ඉතා විශාල බැවින් පළමු පද 150 පමණක් පෙන්වනු ලැබේ."
+      },
+      en: {
+        subtitle: "Holy Bible",
+        index: "Books Index",
+        bookmarks: "Saved Bookmarks",
+        syncKey: "Sync ID:",
+        settings: "Settings",
+        searchPlaceholder: "Search verses...",
+        versionLabel: "Version:",
+        searchLabel: "Search:",
+        searchScopeLabel: "Search Scope:",
+        allBooks: "All Books",
+        thisBook: "This Book",
+        previousChapter: "Previous Chapter",
+        nextChapter: "Next Chapter",
+        chapterLabel: "Chapter",
+        loadingText: "Loading Bible data. Please wait...",
+        savedBookmarksTitle: "Saved Bookmarks",
+        savedBookmarksDesc: "Here are your saved and highlighted verses.",
+        readButton: "Read",
+        noBookmarks: "No bookmarks saved yet. Click a verse number to highlight and bookmark it.",
+        searchResultTitle: "Search Query",
+        globalSearchScope: "Entire Bible",
+        bookSearchScope: "Within this book",
+        resultsCount: "Results",
+        clearSearchButton: "Clear Search",
+        selectChapterLabel: "Select Chapter:",
+        highlightPopoverTitle: "Highlight Color:",
+        clearHighlightButton: "Clear Highlight",
+        noVersesForChapter: "No data available for this chapter.",
+        searchNoResults: "No matching verses found.",
+        clearSearch: "Clear Search",
+        searchLimitNotice: "Due to large search results, only the first 150 verses are shown."
+      },
+      es: {
+        subtitle: "Santa Biblia",
+        index: "Índice de libros",
+        bookmarks: "Marcadores guardados",
+        syncKey: "ID de sincronización:",
+        settings: "Ajustes",
+        searchPlaceholder: "Buscar versículos...",
+        versionLabel: "Versión:",
+        searchLabel: "Buscar:",
+        searchScopeLabel: "Ámbito de búsqueda:",
+        allBooks: "Todos los libros",
+        thisBook: "Este libro",
+        previousChapter: "Capítulo anterior",
+        nextChapter: "Capítulo siguiente",
+        chapterLabel: "Capítulo",
+        loadingText: "Cargando datos de la Biblia. Por favor, espere...",
+        savedBookmarksTitle: "Marcadores guardados",
+        savedBookmarksDesc: "Aquí están tus versículos guardados y resaltados.",
+        readButton: "Leer",
+        noBookmarks: "Aún no se han guardado marcadores. Haz clic en un número de versículo para resaltarlo y guardarlo.",
+        searchResultTitle: "Consulta de búsqueda",
+        globalSearchScope: "Toda la Biblia",
+        bookSearchScope: "Dentro de este libro",
+        resultsCount: "Resultados",
+        clearSearchButton: "Limpiar búsqueda",
+        selectChapterLabel: "Seleccionar capítulo:",
+        highlightPopoverTitle: "Color de resaltado:",
+        clearHighlightButton: "Borrar resaltado",
+        noVersesForChapter: "No hay datos disponibles para este capítulo.",
+        searchNoResults: "No se encontraron versículos coincidentes.",
+        clearSearch: "Limpiar búsqueda",
+        searchLimitNotice: "Debido a los grandes resultados de búsqueda, solo se muestran los primeros 150 versículos."
+      },
+      fr: {
+        subtitle: "Sainte Bible",
+        index: "Table des matières",
+        bookmarks: "Signets enregistrés",
+        syncKey: "ID de synchronisation:",
+        settings: "Paramètres",
+        searchPlaceholder: "Rechercher des versets...",
+        versionLabel: "Version:",
+        searchLabel: "Rechercher:",
+        searchScopeLabel: "Portée de la recherche:",
+        allBooks: "Tous les livres",
+        thisBook: "Ce livre",
+        previousChapter: "Chapitre précédent",
+        nextChapter: "Chapitre suivant",
+        chapterLabel: "Chapitre",
+        loadingText: "Chargement des données bibliques. Veuillez patienter...",
+        savedBookmarksTitle: "Signets enregistrés",
+        savedBookmarksDesc: "Voici vos versets enregistrés et mis en évidence.",
+        readButton: "Lire",
+        noBookmarks: "Aucun signet enregistré pour le moment. Cliquez sur un numéro de verset pour le surbriller.",
+        searchResultTitle: "Requête de recherche",
+        globalSearchScope: "Toute la Bible",
+        bookSearchScope: "Dans ce livre",
+        resultsCount: "Résultats",
+        clearSearchButton: "Effacer la recherche",
+        selectChapterLabel: "Sélectionnez le chapitre:",
+        highlightPopoverTitle: "Couleur de surbrillance:",
+        clearHighlightButton: "Effacer la surbrillance",
+        noVersesForChapter: "Aucune donnée disponible pour ce chapitre.",
+        searchNoResults: "Aucun verset correspondant trouvé.",
+        clearSearch: "Effacer la recherche",
+        searchLimitNotice: "En raison du grand nombre de résultats, seuls les 150 premiers versets sont affichés."
+      },
+      de: {
+        subtitle: "Heilige Bibel",
+        index: "Bücherverzeichnis",
+        bookmarks: "Gespeicherte Lesezeichen",
+        syncKey: "Synchronisations-ID:",
+        settings: "Einstellungen",
+        searchPlaceholder: "Verse suchen...",
+        versionLabel: "Version:",
+        searchLabel: "Suche:",
+        searchScopeLabel: "Suchbereich:",
+        allBooks: "Alle Bücher",
+        thisBook: "Dieses Buch",
+        previousChapter: "Vorheriges Kapitel",
+        nextChapter: "Nächstes Kapitel",
+        chapterLabel: "Kapitel",
+        loadingText: "Bibeldaten werden geladen. Bitte warten...",
+        savedBookmarksTitle: "Gespeicherte Lesezeichen",
+        savedBookmarksDesc: "Hier sind Ihre gespeicherten und markierten Verse.",
+        readButton: "Lesen",
+        noBookmarks: "Noch keine Lesezeichen gespeichert. Klicken Sie auf eine Versnummer, um sie zu markieren.",
+        searchResultTitle: "Suchanfrage",
+        globalSearchScope: "Ganze Bibel",
+        bookSearchScope: "In diesem Buch",
+        resultsCount: "Ergebnisse",
+        clearSearchButton: "Suche löschen",
+        selectChapterLabel: "Kapitel auswählen:",
+        highlightPopoverTitle: "Hervorhebungsfarbe:",
+        clearHighlightButton: "Hervorhebung löschen",
+        noVersesForChapter: "Keine Daten für dieses Kapitel verfügbar.",
+        searchNoResults: "Keine passenden Verse gefunden.",
+        clearSearch: "Suche löschen",
+        searchLimitNotice: "Aufgrund der großen Suchergebnisse werden nur die ersten 150 Verse angezeigt."
+      }
+    };
+    return strings[lang]?.[key] || strings.si[key] || key;
+  }, [getLanguage]);
+
   // Determine books available in the current translation
   const availableBooks = useMemo(() => {
     if (bibleData.length === 0) return [];
     const bookCodes = new Set(bibleData.map(v => v.book));
-    return booksData.filter(b => bookCodes.has(b.code));
-  }, [bibleData]);
+    return activeBooks.filter(b => bookCodes.has(b.code));
+  }, [bibleData, activeBooks]);
 
   // Set default book if current selection is invalid
   useEffect(() => {
@@ -288,12 +560,27 @@ export default function App() {
     }
   }, [availableBooks, selectedBook]);
 
-  // Get active book name in Sinhala
+  // Get active book name in selected language
   const currentBookName = useMemo(() => {
-    if (selectedBook === "bookmarks") return "සුරැකි පද";
-    const book = booksData.find(b => b.code === selectedBook);
+    if (selectedBook === "bookmarks") {
+      switch (version) {
+        case 'KJV':
+        case 'ASV':
+        case 'BBE':
+          return "Saved Bookmarks";
+        case 'SpaRV':
+          return "Marcadores guardados";
+        case 'FreBBB':
+          return "Signets enregistrés";
+        case 'GerBoLut':
+          return "Gespeicherte Lesezeichen";
+        default:
+          return "සුරැකි පද";
+      }
+    }
+    const book = activeBooks.find(b => b.code === selectedBook);
     return book ? book.name : "";
-  }, [selectedBook]);
+  }, [selectedBook, activeBooks, version]);
 
   // Get total chapters in the currently selected book
   const totalChapters = useMemo(() => {
@@ -461,14 +748,14 @@ export default function App() {
   const renderSiderContent = () => (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       <div className="sider-header">
-        <span><BookOutlined style={{ marginRight: '8px' }} />නාමාවලිය</span>
+        <span><BookOutlined style={{ marginRight: '8px' }} />{t('index')}</span>
       </div>
 
       {/* Responsive mobile panel for version selectors & search */}
       {isMobile && (
         <div style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: '12px', borderBottom: '1px solid var(--border-color)', background: theme === 'dark' ? '#111827' : '#f7fafc' }}>
           <div>
-            <Text type="secondary" style={{ fontSize: '11px', display: 'block', marginBottom: '4px' }}>පරිවර්තනය (Version):</Text>
+            <Text type="secondary" style={{ fontSize: '11px', display: 'block', marginBottom: '4px' }}>{t('versionLabel')}</Text>
             <Select 
               value={version} 
               onChange={(val) => {
@@ -479,15 +766,16 @@ export default function App() {
               dropdownStyle={{ borderRadius: '8px' }}
               disabled={selectedBook === "bookmarks"}
             >
-              <Select.Option value="2018">2018 නව සංශෝධිත</Select.Option>
-              <Select.Option value="ROV">පැරණි සංශෝධිත</Select.Option>
+              {versionsList.map(v => (
+                <Select.Option key={v.value} value={v.value}>{v.label}</Select.Option>
+              ))}
             </Select>
           </div>
           <div>
-            <Text type="secondary" style={{ fontSize: '11px', display: 'block', marginBottom: '4px' }}>පද සෙවීම (Search):</Text>
+            <Text type="secondary" style={{ fontSize: '11px', display: 'block', marginBottom: '4px' }}>{t('searchLabel')}</Text>
             {selectedBook !== "bookmarks" && (
               <Input.Search 
-                placeholder="පද සොයන්න (Search)..." 
+                placeholder={t('searchPlaceholder')}
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 onSearch={(val) => {
@@ -501,7 +789,7 @@ export default function App() {
           </div>
           {searchActive && selectedBook !== "bookmarks" && (
             <div>
-              <Text type="secondary" style={{ fontSize: '11px', display: 'block', marginBottom: '4px' }}>සෙවුම් සීමාව (Search Scope):</Text>
+              <Text type="secondary" style={{ fontSize: '11px', display: 'block', marginBottom: '4px' }}>{t('searchScopeLabel')}</Text>
               <Radio.Group 
                 value={searchScope} 
                 onChange={(e) => {
@@ -513,8 +801,8 @@ export default function App() {
                 size="small"
                 style={{ width: '100%', display: 'flex' }}
               >
-                <Radio.Button value="global" style={{ flex: 1, textAlign: 'center' }}>සියලු පොත්</Radio.Button>
-                <Radio.Button value="book" style={{ flex: 1, textAlign: 'center' }}>මෙම පොතෙන්</Radio.Button>
+                <Radio.Button value="global" style={{ flex: 1, textAlign: 'center' }}>{t('allBooks')}</Radio.Button>
+                <Radio.Button value="book" style={{ flex: 1, textAlign: 'center' }}>{t('thisBook')}</Radio.Button>
               </Radio.Group>
             </div>
           )}
@@ -544,7 +832,7 @@ export default function App() {
               icon: <StarFilled style={{ color: '#fadb14' }} />,
               label: (
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
-                  <span>සුරැකි පද (Bookmarks)</span>
+                  <span>{t('bookmarks')}</span>
                   <Badge count={bookmarks.length} overflowCount={99} color="#fadb14" style={{ color: '#000', fontSize: '10px' }} />
                 </div>
               )
@@ -573,7 +861,7 @@ export default function App() {
         {(!collapsed || isMobile) ? (
           <>
             <div style={{ display: 'flex', flexDirection: 'column' }}>
-              <Text type="secondary" style={{ fontSize: '10px' }}>සංසන්දන කේතය (Sync ID):</Text>
+              <Text type="secondary" style={{ fontSize: '10px' }}>{t('syncKey')}</Text>
               <Text strong style={{ fontSize: '13px', color: '#1890ff' }}>{syncId}</Text>
             </div>
             <Button 
@@ -586,7 +874,7 @@ export default function App() {
                 if (isMobile) setCollapsed(true);
               }}
             >
-              සිටුවම්
+              {t('settings')}
             </Button>
           </>
         ) : (
@@ -623,24 +911,24 @@ export default function App() {
             />
             <img src={logo} alt="Bibalaya Logo" style={{ height: isMobile ? '32px' : '36px', width: isMobile ? '32px' : '36px', borderRadius: '8px', objectFit: 'cover' }} />
             <Title level={isMobile ? 5 : 4} style={{ margin: 0, fontWeight: 700, letterSpacing: '-0.02em', color: theme === 'dark' ? '#f8fafc' : '#2c3e50', display: 'flex', alignItems: 'center', gap: '6px' }}>
-              Bibalaya.com {!isMobile && <span style={{ fontSize: '12px', opacity: 0.5, fontWeight: 400, marginTop: '4px', color: theme === 'dark' ? '#94a3b8' : '#718096' }}>ශුද්ධ වූ බයිබලය</span>}
+              Bibalaya.com {!isMobile && <span style={{ fontSize: '12px', opacity: 0.5, fontWeight: 400, marginTop: '4px', color: theme === 'dark' ? '#94a3b8' : '#718096' }}>{t('subtitle')}</span>}
             </Title>
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '8px' : '16px' }}>
-            {/* Version Selector (Desktop Only) */}
             {!isMobile && (
               <Space>
                 <TranslationOutlined style={{ color: '#718096' }} />
                 <Select 
                   value={version} 
                   onChange={(val) => setVersion(val)} 
-                  style={{ width: 180 }}
+                  style={{ width: 280 }}
                   dropdownStyle={{ borderRadius: '8px' }}
                   disabled={selectedBook === "bookmarks"}
                 >
-                  <Select.Option value="2018">2018 නව සංශෝධිත</Select.Option>
-                  <Select.Option value="ROV">පැරණි සංශෝධිත</Select.Option>
+                  {versionsList.map(v => (
+                    <Select.Option key={v.value} value={v.value}>{v.label}</Select.Option>
+                  ))}
                 </Select>
               </Space>
             )}
@@ -664,15 +952,15 @@ export default function App() {
                 buttonStyle="solid"
                 size="middle"
               >
-                <Radio.Button value="global">සියලු පොත්</Radio.Button>
-                <Radio.Button value="book">මෙම පොතෙන්</Radio.Button>
+                <Radio.Button value="global">{t('allBooks')}</Radio.Button>
+                <Radio.Button value="book">{t('thisBook')}</Radio.Button>
               </Radio.Group>
             )}
 
             {/* Search Field (Desktop Only) */}
             {!isMobile && selectedBook !== "bookmarks" && (
               <Input.Search 
-                placeholder="පද සොයන්න (Search)..." 
+                placeholder={t('searchPlaceholder')}
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 onSearch={handleSearch}
@@ -718,7 +1006,7 @@ export default function App() {
             {loading ? (
               <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', height: '60vh', gap: '16px' }}>
                 <Spin indicator={antIcon} />
-                <Text type="secondary" style={{ fontSize: '15px' }}>දත්ත පූරණය වෙමින් පවතී. කරුණාකර රැඳී සිටින්න...</Text>
+                <Text type="secondary" style={{ fontSize: '15px' }}>{t('loadingText')}</Text>
               </div>
             ) : (
               <div className="animate-fade-in" style={{ maxWidth: '960px', margin: '0 auto' }}>
@@ -728,17 +1016,17 @@ export default function App() {
                   <div>
                     <div className="hero-section" style={{ background: 'linear-gradient(135deg, #b91c1c 0%, #7f1d1d 100%)' }}>
                       <Title level={isMobile ? 3 : 2} style={{ color: 'white', margin: 0, display: 'flex', alignItems: 'center', gap: '12px' }}>
-                        <StarFilled style={{ color: '#fadb14' }} /> සුරැකි පද (Saved Bookmarks)
+                        <StarFilled style={{ color: '#fadb14' }} /> {t('savedBookmarksTitle')}
                       </Title>
                       <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: '14px', display: 'block', marginTop: '6px' }}>
-                        ඔබ විසින් පාට කර සලකුණු කරන ලද බයිබල් පද මෙහි දැක්වේ.
+                        {t('savedBookmarksDesc')}
                       </Text>
                     </div>
 
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                       {bookmarks.length > 0 ? (
                         bookmarks.map((b, i) => {
-                          const bookName = booksData.find(book => book.code === b.book)?.name || b.book;
+                          const bookName = getBookName(b.book, b.version);
                           return (
                             <Card 
                               key={i} 
@@ -751,7 +1039,7 @@ export default function App() {
                                   <Text strong style={{ fontSize: '15px' }}>
                                     {bookName} {b.chapter}:{b.verse} 
                                     <span style={{ fontSize: '11px', opacity: 0.6, marginLeft: '8px', fontWeight: 400 }}>
-                                      ({b.version === '2018' ? '2018 නව' : 'පැරණි'})
+                                      ({b.version})
                                     </span>
                                   </Text>
                                   <Space>
@@ -760,7 +1048,7 @@ export default function App() {
                                       size="small" 
                                       onClick={() => handleJumpToVerse(b)}
                                     >
-                                      කියවන්න
+                                      {t('readButton')}
                                     </Button>
                                     <Button 
                                       type="primary" 
@@ -783,7 +1071,7 @@ export default function App() {
                           image={Empty.PRESENTED_IMAGE_SIMPLE} 
                           description={
                             <span style={{ fontSize: '14px', color: '#718096' }}>
-                              තවමත් කිසිදු පදයක් සලකුණු කර නැත. කියවන විට පදයේ අංකය ක්ලික් කර පාටක් තෝරන්න.
+                              {t('noBookmarks')}
                             </span>
                           }
                           style={{ background: 'var(--card-bg)', padding: '48px 24px', borderRadius: '12px', border: '1px solid var(--border-color)' }}
@@ -801,16 +1089,16 @@ export default function App() {
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                           <div>
                             <Title level={isMobile ? 4 : 3} style={{ color: 'white', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                              <SearchOutlined /> සොයන පදය: "{searchTerm}"
+                              <SearchOutlined /> {t('searchResultTitle')}: "{searchTerm}"
                             </Title>
                             <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: '14px', display: 'block', marginTop: '6px' }}>
-                              {searchScope === 'book' ? `${currentBookName} පොත තුළ` : 'මුළු බයිබලය පුරාම'}
+                              {searchScope === 'book' ? `${currentBookName} (${t('bookSearchScope')})` : t('globalSearchScope')}
                             </Text>
                           </div>
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '4px' }}>
                             <div style={{ background: 'rgba(255,255,255,0.1)', padding: '6px 12px', borderRadius: '6px' }}>
                               <Text style={{ color: 'white', fontWeight: 600, fontSize: '12px' }}>
-                                ප්‍රතිඵල: {displayedVerses.length}
+                                {t('resultsCount')}: {displayedVerses.length}
                               </Text>
                             </div>
                             <Button 
@@ -821,7 +1109,7 @@ export default function App() {
                               onClick={clearSearch}
                               style={{ borderRadius: '6px' }}
                             >
-                              සෙවීම අවසන් කරන්න
+                              {t('clearSearchButton')}
                             </Button>
                           </div>
                         </div>
@@ -834,7 +1122,7 @@ export default function App() {
                               {currentBookName}
                             </Title>
                             <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: '14px', display: 'block', marginTop: '4px', textAlign: isMobile ? 'center' : 'left' }}>
-                              පරිච්ඡේදය: {selectedChapter} / {totalChapters}
+                              {t('chapterLabel')}: {selectedChapter} / {totalChapters}
                             </Text>
                           </div>
                           <Space size="middle" style={{ justifyContent: isMobile ? 'center' : 'flex-end' }}>
@@ -843,14 +1131,14 @@ export default function App() {
                               onClick={handlePrevChapter} 
                               style={{ background: 'rgba(255,255,255,0.15)', border: 'none', color: 'white', height: '36px', borderRadius: '8px' }}
                             >
-                              පෙර පරිච්ඡේදය
+                              {t('previousChapter')}
                             </Button>
                             <Button 
                               disabled={selectedBook === availableBooks[availableBooks.length - 1]?.code && selectedChapter === totalChapters}
                               onClick={handleNextChapter} 
                               style={{ background: 'rgba(255,255,255,0.25)', border: 'none', color: 'white', height: '36px', borderRadius: '8px', fontWeight: 600 }}
                             >
-                              ඊළඟ පරිච්ඡේදය
+                              {t('nextChapter')}
                             </Button>
                           </Space>
                         </div>
@@ -860,7 +1148,7 @@ export default function App() {
                     {/* Chapters list in reading mode */}
                     {!searchActive && totalChapters > 1 && (
                       <div style={{ marginBottom: '24px' }}>
-                        <Text type="secondary" style={{ display: 'block', marginBottom: '8px', fontWeight: 600 }}>පරිච්ඡේදය තෝරන්න (Select Chapter):</Text>
+                        <Text type="secondary" style={{ display: 'block', marginBottom: '8px', fontWeight: 600 }}>{t('selectChapterLabel')}</Text>
                         <div className="chapter-grid">
                           {Array.from({ length: totalChapters }, (_, i) => i + 1).map(ch => (
                             <div 
@@ -879,7 +1167,7 @@ export default function App() {
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                       {displayedVerses.length > 0 ? (
                         displayedVerses.slice(0, 150).map((v, i) => {
-                          const bookName = booksData.find(b => b.code === v.book)?.name || v.book;
+                          const bookName = activeBooks.find(b => b.code === v.book)?.name || v.book;
                           
                           // Check if highlighted
                           const hl = bookmarks.find(b => b.book === v.book && b.chapter === v.chapter && b.verse === v.verse);
@@ -888,7 +1176,7 @@ export default function App() {
                           // Popover Color selector
                           const popoverContent = (
                             <div style={{ width: '220px' }}>
-                              <Text strong style={{ display: 'block', marginBottom: '8px', fontSize: '12px' }}>පදය පාට කරන්න (Highlight Color):</Text>
+                              <Text strong style={{ display: 'block', marginBottom: '8px', fontSize: '12px' }}>{t('highlightPopoverTitle')}</Text>
                               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '8px', marginBottom: '12px' }}>
                                 {paletteColors.map((c, idx) => (
                                   <div 
@@ -918,7 +1206,7 @@ export default function App() {
                                   onClick={() => handleRemoveBookmark(v.book, v.chapter, v.verse)}
                                   style={{ borderRadius: '6px' }}
                                 >
-                                  පාට ඉවත් කරන්න (Clear)
+                                  {t('clearHighlightButton')}
                                 </Button>
                               )}
                             </div>
@@ -950,13 +1238,13 @@ export default function App() {
                           image={Empty.PRESENTED_IMAGE_SIMPLE} 
                           description={
                             <span style={{ fontSize: '14px', color: '#718096' }}>
-                              {searchActive ? 'පද කිසිවක් සොයාගත නොහැකි විය.' : 'මෙම පරිච්ඡේදය සඳහා දත්ත නොමැත.'}
+                              {searchActive ? t('searchNoResults') : t('noVersesForChapter')}
                             </span>
                           } 
                           style={{ background: 'var(--card-bg)', padding: '48px 24px', borderRadius: '12px', border: '1px solid var(--border-color)' }}
                         >
                           {searchActive && (
-                            <Button type="primary" onClick={clearSearch}>සෙවීම ඉවත් කරන්න</Button>
+                            <Button type="primary" onClick={clearSearch}>{t('clearSearch')}</Button>
                           )}
                         </Empty>
                       )}
@@ -966,7 +1254,7 @@ export default function App() {
                         <Card style={{ textAlign: 'center', background: 'var(--card-bg)', borderRadius: '12px', border: '1px dashed var(--border-color)' }}>
                           <CompassOutlined style={{ fontSize: '24px', color: '#718096', marginBottom: '8px' }} />
                           <Paragraph type="secondary" style={{ margin: 0 }}>
-                            සෙවුම් ප්‍රතිඵල ඉතා විශාල බැවින් පළමු පද 150 පමණක් පෙන්වනු ලැබේ.
+                            {t('searchLimitNotice')}
                           </Paragraph>
                         </Card>
                       )}
@@ -982,10 +1270,10 @@ export default function App() {
                           size="large"
                           style={{ borderRadius: '8px', width: isMobile ? '100%' : 'auto' }}
                         >
-                          පෙර පරිච්ඡේදය
+                          {t('previousChapter')}
                         </Button>
                         <Text type="secondary" style={{ fontWeight: 500 }}>
-                          {currentBookName} : {selectedChapter} වන පරිච්ඡේදය
+                          {getLanguage() === 'si' ? `${currentBookName} : ${selectedChapter} වන පරිච්ඡේදය` : `${currentBookName} : ${t('chapterLabel')} ${selectedChapter}`}
                         </Text>
                         <Button 
                           disabled={selectedBook === availableBooks[availableBooks.length - 1]?.code && selectedChapter === totalChapters}
@@ -994,7 +1282,7 @@ export default function App() {
                           size="large"
                           style={{ borderRadius: '8px', width: isMobile ? '100%' : 'auto' }}
                         >
-                          ඊළඟ පරිච්ඡේදය
+                          {t('nextChapter')}
                         </Button>
                       </div>
                     )}
