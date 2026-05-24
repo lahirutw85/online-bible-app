@@ -150,6 +150,9 @@ body {
   padding: 2px 8px;
   border-radius: 6px;
   font-family: 'Outfit', sans-serif;
+  white-space: nowrap;
+  flex-shrink: 0;
+  display: inline-block;
 }
 
 /* Search Term Highlight */
