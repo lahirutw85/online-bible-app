@@ -304,16 +304,12 @@ export default function App() {
    * Effect: Resets search engine flag if the user switches version.
    */
   useEffect(() => {
-    if (bibleService.isApiVersion(version)) {
-      setIsFullLoaded(false);
-    }
-  }, [version, bibleService]);
+    setIsFullLoaded(false);
+  }, [version]);
 
   useEffect(() => {
-    if (bibleService.isApiVersion(compareVersion)) {
-      setCompareFullLoaded(false);
-    }
-  }, [compareVersion, bibleService]);
+    setCompareFullLoaded(false);
+  }, [compareVersion]);
 
   useEffect(() => {
     let active = true;
@@ -344,9 +340,6 @@ export default function App() {
 
         if (active) {
           setBibleData(finalData);
-          if (!bibleService.isApiVersion(version)) {
-            setIsFullLoaded(true);
-          }
           setLoading(false);
         }
       })
@@ -358,7 +351,7 @@ export default function App() {
     return () => {
       active = false;
     };
-  }, [version, selectedBook, selectedChapter, isFullLoaded, showReferences, bibleService, referenceService]);
+  }, [version, selectedBook, selectedChapter, showReferences, bibleService, referenceService]);
 
   /**
    * Effect: Chapter Loader (Compare Mode Bible).
@@ -369,16 +362,13 @@ export default function App() {
     bibleService.fetchChapter(selectedBook, selectedChapter, compareVersion)
       .then(data => {
         setCompareBibleData(data);
-        if (!bibleService.isApiVersion(compareVersion)) {
-          setCompareFullLoaded(true);
-        }
         setCompareLoading(false);
       })
       .catch(err => {
         console.error("API Compare Fetch error:", err);
         setCompareLoading(false);
       });
-  }, [compareVersion, compareMode, selectedBook, selectedChapter, compareFullLoaded, bibleService]);
+  }, [compareVersion, compareMode, selectedBook, selectedChapter, bibleService]);
 
   /* =========================================================================
      SECTION 4: CORE ACTION HANDLERS
@@ -407,7 +397,7 @@ export default function App() {
       return;
     }
 
-    if (bibleService.isApiVersion(version) && !isFullLoaded) {
+    if (!isFullLoaded) {
       setSearchLoading(true);
       try {
         const flat = await bibleService.loadFullBibleForSearch(version);
@@ -415,13 +405,13 @@ export default function App() {
         setIsFullLoaded(true);
       } catch (err) {
         console.error("Failed to load search database:", err);
-        message.error("සෙවුම් දත්ත පූරණය අසාර්ථක විය. (Failed to load search database from API)");
+        message.error("සෙවුම් දත්ත පූරණය අසාර්ථක විය. (Failed to load search database)");
       } finally {
         setSearchLoading(false);
       }
     }
 
-    if (compareMode && bibleService.isApiVersion(compareVersion) && !compareFullLoaded) {
+    if (compareMode && !compareFullLoaded) {
       setSearchLoading(true);
       try {
         const flat = await bibleService.loadFullBibleForSearch(compareVersion);
@@ -1201,6 +1191,8 @@ export default function App() {
                     }
                     getBookName={getBookName}
                     showReferences={showReferences}
+                    bibleService={bibleService}
+                    referenceService={referenceService}
                   />
                 </div>
               </React.Fragment>

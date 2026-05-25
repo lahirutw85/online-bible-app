@@ -18,14 +18,16 @@ export default function ReferencePanel({
   handleJumpToVerse, 
   handleFetchVerseText, 
   getBookName, 
-  showReferences 
+  showReferences,
+  bibleService: sharedBibleService,
+  referenceService: sharedReferenceService
 }) {
   const [verses, setVerses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refsExpanded, setRefsExpanded] = useState(false);
 
-  const bibleService = useMemo(() => new BibleService(), []);
-  const referenceService = useMemo(() => new ReferenceService(), []);
+  const bibleService = useMemo(() => sharedBibleService || new BibleService(), [sharedBibleService]);
+  const referenceService = useMemo(() => sharedReferenceService || new ReferenceService(), [sharedReferenceService]);
 
   useEffect(() => {
     let active = true;

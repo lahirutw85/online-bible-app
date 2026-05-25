@@ -29,6 +29,9 @@ const helloAoToLocalMap = {
   "REV": "Rev"
 };
 
+// Module-level cache shared across all ReferenceService instances to prevent redundant network downloads
+const sharedFileCache = {};
+
 /**
  * @class ReferenceService
  * @description OOP Service Class handling dynamic loading of Bible cross-references.
@@ -41,7 +44,7 @@ export default class ReferenceService {
      * Prevents redownloading files as the reader changes chapters.
      * @type {Object<number, Object>}
      */
-    this.fileCache = {};
+    this.fileCache = sharedFileCache;
   }
 
   /**
@@ -96,23 +99,34 @@ export default class ReferenceService {
    */
   async fetchReferencesForChapter(versesList) {
     const refsMap = {};
+    console.log("fetchReferencesForChapter CALLED with versesList length:", versesList ? versesList.length : 0);
     if (!versesList || versesList.length === 0) return refsMap;
 
     for (const v of versesList) {
       const absoluteId = this.getAbsoluteVerseId(v.book, v.chapter, v.verse);
-      if (absoluteId === -1 || absoluteId > 31102) continue;
+      console.log(`Verse: ${v.book} ${v.chapter}:${v.verse} -> absoluteId: ${absoluteId}`);
+      if (absoluteId === -1 || absoluteId > 31102) {
+        console.log(`Skipping verse due to invalid absoluteId: ${absoluteId}`);
+        continue;
+      }
 
       const fileIdx = this.getFileIndex(absoluteId);
       let fileData = this.fileCache[fileIdx];
+      console.log(`fileIdx: ${fileIdx}, cached: ${!!fileData}`);
 
       // Download file from GitHub if not already present in memory cache
       if (!fileData) {
         try {
           const url = `https://raw.githubusercontent.com/josephilipraja/bible-cross-reference-json/master/${fileIdx}.json`;
+          console.log("FETCHING FROM URL:", url);
           const res = await fetch(url);
+          console.log("FETCH RESOLVED, res exists:", !!res, "status:", res ? res.status : 'N/A');
           if (res.ok) {
             fileData = await res.json();
             this.fileCache[fileIdx] = fileData;
+            console.log("FETCH SUCCESS, fileData keys count:", Object.keys(fileData).length);
+          } else {
+            console.error("FETCH FAILED, res not ok:", res.status);
           }
         } catch (err) {
           console.error(`Failed to fetch cross references file ${fileIdx}:`, err);
@@ -136,7 +150,10 @@ export default class ReferenceService {
               verse: ver
             };
           });
+          console.log(`Found ${parsedRefs.length} references for ${v.book} ${v.chapter}:${v.verse}`);
           refsMap[`${v.book}_${v.chapter}_${v.verse}`] = parsedRefs;
+        } else {
+          console.log(`No reference data in file for absoluteId: ${absoluteId}`);
         }
       }
     }

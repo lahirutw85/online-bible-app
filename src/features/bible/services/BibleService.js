@@ -6,6 +6,10 @@
  * 2. For local translations (Sinhala ROV/2018, Tamil TAMOVR), it performs dynamic imports of raw JSON files,
  *    enabling the React app bundle to remain lightweight since large 12MB databases are split into lazy-loaded files.
  */
+// Module-level caches shared across all BibleService instances to prevent redundant operations and memory leaks
+const localBiblesCache = {};
+const apiChaptersCache = {};
+
 export default class BibleService {
   constructor() {
     /**
@@ -75,6 +79,11 @@ export default class BibleService {
     const apiVersions = { "KJV": "eng_kjv", "ASV": "eng_asv", "BBE": "eng_bbe", "BSB": "BSB" };
 
     if (this.isApiVersion(version)) {
+      const cacheKey = `${version}_${book}_${chapter}`;
+      if (apiChaptersCache[cacheKey]) {
+        return apiChaptersCache[cacheKey];
+      }
+
       const helloAoId = apiVersions[version];
       const helloAoBookId = this.getHelloAoBookCode(book);
       const url = `https://bible.helloao.org/api/${helloAoId}/${helloAoBookId}/${chapter}.json`;
@@ -108,8 +117,14 @@ export default class BibleService {
           }
         });
       }
+      apiChaptersCache[cacheKey] = flat;
       return flat;
     } else {
+      // If we have the full bible loaded in cache, filter from it directly
+      if (localBiblesCache[version]) {
+        return localBiblesCache[version].filter(v => v.book === book && v.chapter === chapter);
+      }
+
       // Local lazy-loading dynamic imports.
       // Webpack splits these imported JSONs into distinct async files, preserving startup speed.
       let module;
@@ -121,14 +136,15 @@ export default class BibleService {
         module = await import('../../../data/sirov.json');
       }
       
-      // Convert OSIS abbreviations to App properties
-      return module.default
-        .map(v => ({
-          book: v.b,
-          chapter: v.c,
-          verse: v.v,
-          text: v.t
-        }));
+      const rawVerses = module.default || module;
+      // Filter raw OSIS structures BEFORE mapping to preserve memory allocations (from 31k down to ~30 verses)
+      const chapterVerses = rawVerses.filter(v => v.b === book && v.c === chapter);
+      return chapterVerses.map(v => ({
+        book: v.b,
+        chapter: v.c,
+        verse: v.v,
+        text: v.t
+      }));
     }
   }
 
@@ -159,64 +175,83 @@ export default class BibleService {
    * @returns {Promise<Array<{book: string, chapter: number, verse: number, text: string}>>}
    */
   async loadFullBibleForSearch(version) {
-    if (!this.isApiVersion(version)) {
-      throw new Error("Local bibles are already fully loaded in memory.");
-    }
-
-    const apiVersions = { "KJV": "eng_kjv", "ASV": "eng_asv", "BBE": "eng_bbe", "BSB": "BSB" };
-    const apiId = apiVersions[version];
-    
     // Return cache if it exists
+    if (localBiblesCache[version]) {
+      return localBiblesCache[version];
+    }
     if (this.searchCache[version]) {
       return this.searchCache[version];
     }
 
-    const res = await fetch(`https://bible.helloao.org/api/${apiId}/complete.json`);
-    if (!res.ok) throw new Error(`Failed to load full Bible database for version ${version}`);
-    const data = await res.json();
+    if (this.isApiVersion(version)) {
+      const apiVersions = { "KJV": "eng_kjv", "ASV": "eng_asv", "BBE": "eng_bbe", "BSB": "BSB" };
+      const apiId = apiVersions[version];
 
-    const flat = [];
-    // Inverse localToHelloAoMap to convert HelloAO uppercase book IDs back to local abbreviations (e.g. 'GEN' -> 'Gen')
-    const helloAoToLocalMap = {};
-    for (const [localCode, helloAoId] of Object.entries(this.localToHelloAoMap)) {
-      helloAoToLocalMap[helloAoId] = localCode;
+      const res = await fetch(`https://bible.helloao.org/api/${apiId}/complete.json`);
+      if (!res.ok) throw new Error(`Failed to load full Bible database for version ${version}`);
+      const data = await res.json();
+
+      const flat = [];
+      // Inverse localToHelloAoMap to convert HelloAO uppercase book IDs back to local abbreviations (e.g. 'GEN' -> 'Gen')
+      const helloAoToLocalMap = {};
+      for (const [localCode, helloAoId] of Object.entries(this.localToHelloAoMap)) {
+        helloAoToLocalMap[helloAoId] = localCode;
+      }
+
+      // Traverse the nested book/chapter/verse tree structure and flatten it
+      if (data && Array.isArray(data.books)) {
+        data.books.forEach(b => {
+          const bookCode = helloAoToLocalMap[b.id] || b.id;
+          if (Array.isArray(b.chapters)) {
+            b.chapters.forEach(chObj => {
+              const ch = chObj.chapter;
+              if (ch && Array.isArray(ch.content)) {
+                ch.content.forEach(item => {
+                  if (item.type === 'verse') {
+                    const verseNum = item.number || item.verse;
+                    const text = item.content
+                      .map(part => {
+                        if (typeof part === 'string') return part;
+                        if (part && typeof part.text === 'string') return part.text;
+                        return '';
+                      })
+                      .filter(t => t.trim() !== '')
+                      .join(' ');
+                    flat.push({
+                      book: bookCode,
+                      chapter: ch.number,
+                      verse: typeof verseNum === 'string' ? parseInt(verseNum) : verseNum,
+                      text: text
+                    });
+                  }
+                });
+              }
+            });
+          }
+        });
+      }
+
+      // Store in cache for future searches
+      this.searchCache[version] = flat;
+      return flat;
+    } else {
+      let module;
+      if (version === '2018') {
+        module = await import('../../../data/sinnrv2018.json');
+      } else if (version === 'TAMOVR') {
+        module = await import('../../../data/ta_movr.json');
+      } else {
+        module = await import('../../../data/sirov.json');
+      }
+
+      const rawVerses = module.default || module;
+      localBiblesCache[version] = rawVerses.map(v => ({
+        book: v.b,
+        chapter: v.c,
+        verse: v.v,
+        text: v.t
+      }));
+      return localBiblesCache[version];
     }
-
-    // Traverse the nested book/chapter/verse tree structure and flatten it
-    if (data && Array.isArray(data.books)) {
-      data.books.forEach(b => {
-        const bookCode = helloAoToLocalMap[b.id] || b.id;
-        if (Array.isArray(b.chapters)) {
-          b.chapters.forEach(chObj => {
-            const ch = chObj.chapter;
-            if (ch && Array.isArray(ch.content)) {
-              ch.content.forEach(item => {
-                if (item.type === 'verse') {
-                  const verseNum = item.number || item.verse;
-                  const text = item.content
-                    .map(part => {
-                      if (typeof part === 'string') return part;
-                      if (part && typeof part.text === 'string') return part.text;
-                      return '';
-                    })
-                    .filter(t => t.trim() !== '')
-                    .join(' ');
-                  flat.push({
-                    book: bookCode,
-                    chapter: ch.number,
-                    verse: typeof verseNum === 'string' ? parseInt(verseNum) : verseNum,
-                    text: text
-                  });
-                }
-              });
-            }
-          });
-        }
-      });
-    }
-
-    // Store in cache for future searches
-    this.searchCache[version] = flat;
-    return flat;
   }
 }
