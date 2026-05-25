@@ -18,10 +18,6 @@ import {
   Button, 
   ConfigProvider, 
   Drawer, 
-  Divider, 
-  Collapse,
-  Input,
-  Tooltip,
   Card,
   Empty,
   message,
@@ -30,10 +26,6 @@ import {
 } from 'antd';
 import { 
   SettingOutlined, 
-  CloudSyncOutlined, 
-  LinkOutlined, 
-  CopyOutlined,
-  InfoCircleOutlined,
   SearchOutlined,
   ClearOutlined,
   CompassOutlined,
@@ -53,7 +45,6 @@ import {
   BibleService,
   LexiconService,
   BookmarkService,
-  SyncService,
   ReferenceService,
   HeaderBar,
   SiderContent,
@@ -101,86 +92,6 @@ const versionsList = [
 // Reusable spinner component using Ant Design's spin algorithm
 const antIcon = <LoadingOutlined style={{ fontSize: 32 }} spin />;
 
-/**
- * Deployment code template for Google Apps Script Web App.
- */
-const appsScriptCode = `function doGet(e) {
-  var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
-  if (sheet.getLastRow() === 0) {
-    sheet.appendRow(["SyncId", "Book", "Chapter", "Verse", "Color", "Version", "Text", "Timestamp"]);
-  }
-  
-  var params = e.parameter;
-  var action = params.action;
-  var syncId = params.syncId;
-  
-  if (!syncId) {
-    return ContentService.createTextOutput(JSON.stringify({ error: "Missing syncId" }))
-      .setMimeType(ContentService.MimeType.JSON);
-  }
-  
-  var rows = sheet.getDataRange().getValues();
-  
-  if (action === "get") {
-    var bookmarks = [];
-    for (var i = 1; i < rows.length; i++) {
-      if (rows[i][0] === syncId) {
-        bookmarks.push({
-          book: rows[i][1],
-          chapter: parseInt(rows[i][2]),
-          verse: parseInt(rows[i][3]),
-          color: rows[i][4],
-          version: rows[i][5],
-          text: rows[i][6]
-        });
-      }
-    }
-    return ContentService.createTextOutput(JSON.stringify(bookmarks))
-      .setMimeType(ContentService.MimeType.JSON);
-  }
-  
-  if (action === "add") {
-    var foundIdx = -1;
-    for (var i = 1; i < rows.length; i++) {
-      if (rows[i][0] === syncId && rows[i][1] === params.book && parseInt(rows[i][2]) === parseInt(params.chapter) && parseInt(rows[i][3]) === parseInt(params.verse)) {
-        foundIdx = i;
-        break;
-      }
-    }
-    
-    var timestamp = new Date();
-    if (foundIdx !== -1) {
-      sheet.getRange(foundIdx + 1, 5).setValue(params.color);
-      sheet.getRange(foundIdx + 1, 8).setValue(timestamp);
-    } else {
-      sheet.appendRow([
-        syncId, 
-        params.book, 
-        parseInt(params.chapter), 
-        parseInt(params.verse), 
-        params.color, 
-        params.version, 
-        params.text, 
-        timestamp
-      ]);
-    }
-    return ContentService.createTextOutput(JSON.stringify({ success: true }))
-      .setMimeType(ContentService.MimeType.JSON);
-  }
-  
-  if (action === "delete") {
-    for (var i = rows.length - 1; i >= 1; i--) {
-      if (rows[i][0] === syncId && rows[i][1] === params.book && parseInt(rows[i][2]) === parseInt(params.chapter) && parseInt(rows[i][3]) === parseInt(params.verse)) {
-        sheet.deleteRow(i + 1);
-      }
-    }
-    return ContentService.createTextOutput(JSON.stringify({ success: true }))
-      .setMimeType(ContentService.MimeType.JSON);
-  }
-  
-  return ContentService.createTextOutput(JSON.stringify({ error: "Invalid action" }))
-    .setMimeType(ContentService.MimeType.JSON);
-}`;
 
 /* =========================================================================
    SECTION 2: MAIN APP COMPONENT EXPORT
@@ -239,23 +150,11 @@ export default function App() {
     verseStrongs: []
   });
 
-  /* --- J. Synchronization & Bookmarking States --- */
+  /* --- J. Settings & Bookmarking States --- */
   const [settingsVisible, setSettingsVisible] = useState(false);
-  const [syncing, setSyncing] = useState(false);
-  const [googleScriptUrl, setGoogleScriptUrl] = useState(() => localStorage.getItem("bible-script-url") || "");
-  const [syncId, setSyncId] = useState(() => {
-    const saved = localStorage.getItem("bible-sync-id");
-    if (saved) return saved;
-    const generated = "B-" + Math.floor(100000 + Math.random() * 900000);
-    localStorage.setItem("bible-sync-id", generated);
-    return generated;
-  });
 
   // Re-sync bookmarks list with BookmarkService instance
   const [bookmarks, setBookmarks] = useState(() => bookmarkService.getBookmarks());
-
-  // Instantiate Sync Service class dynamically mapped to credentials
-  const syncService = useMemo(() => new SyncService(googleScriptUrl, syncId), [googleScriptUrl, syncId]);
 
   // Instantiate Reference Service class for loading cross references
   const referenceService = useMemo(() => new ReferenceService(), []);
@@ -399,48 +298,7 @@ export default function App() {
     localStorage.setItem("bible-theme", theme);
   }, [theme]);
 
-  /**
-   * Effect: Sync credential persistence.
-   */
-  useEffect(() => {
-    localStorage.setItem("bible-script-url", googleScriptUrl);
-  }, [googleScriptUrl]);
 
-  useEffect(() => {
-    localStorage.setItem("bible-sync-id", syncId);
-  }, [syncId]);
-
-  /**
-   * Core callback: Contacts Google Sheets API to pull bookmarks and updates state.
-   */
-  const syncBookmarks = useCallback(async (url = googleScriptUrl, id = syncId) => {
-    if (!url) return;
-    setSyncing(true);
-    try {
-      syncService.configure(url, id);
-      const remoteBookmarks = await syncService.pullBookmarks();
-      if (Array.isArray(remoteBookmarks)) {
-        localStorage.setItem("bible-bookmarks", JSON.stringify(remoteBookmarks));
-        bookmarkService.bookmarks = remoteBookmarks;
-        setBookmarks(remoteBookmarks);
-        message.success("සුරැකි පද සාර්ථකව සංසන්දනය කරන ලදී! (Sync complete)");
-      }
-    } catch (err) {
-      console.error("Failed to sync bookmarks:", err);
-      message.error("සංසන්දනය අසාර්ථක විය. (Sync failed)");
-    } finally {
-      setSyncing(false);
-    }
-  }, [googleScriptUrl, syncId, syncService, bookmarkService]);
-
-  /**
-   * Effect: Fetch bookmarks on load.
-   */
-  useEffect(() => {
-    if (googleScriptUrl) {
-      syncBookmarks(googleScriptUrl, syncId);
-    }
-  }, [googleScriptUrl, syncId, syncBookmarks]);
 
   /**
    * Effect: Resets search engine flag if the user switches version.
@@ -606,25 +464,21 @@ export default function App() {
   };
 
   /**
-   * Action handler: Adds bookmark. Updates storage using BookmarkService and pushes to API.
+   * Action handler: Adds bookmark. Updates storage using BookmarkService.
    */
   const handleAddBookmark = (v, color) => {
     const updated = bookmarkService.addBookmark(v, color, version);
     setBookmarks(updated);
     message.success("පදය සුරකින ලදී! (Verse bookmarked)");
-    
-    syncService.pushAdd(v, color, version).catch(err => console.error("Sync add error:", err));
   };
 
   /**
-   * Action handler: Removes bookmark. Updates storage using BookmarkService and pushes delete command.
+   * Action handler: Removes bookmark. Updates storage using BookmarkService.
    */
   const handleRemoveBookmark = (book, chapter, verse) => {
     const updated = bookmarkService.removeBookmark(book, chapter, verse);
     setBookmarks(updated);
     message.info("පදය ඉවත් කරන ලදී. (Bookmark removed)");
-    
-    syncService.pushDelete(book, chapter, verse).catch(err => console.error("Sync delete error:", err));
   };
 
   const handleJumpToVerse = (b) => {
@@ -643,10 +497,7 @@ export default function App() {
     }, 400);
   };
 
-  const handleCopyText = (text) => {
-    navigator.clipboard.writeText(text);
-    message.success("පිටපත් කරන ලදී! (Copied)");
-  };
+
 
   /* =========================================================================
      SECTION 5: LEXICON WORD-LEVEL INTERLINEAR STUDY ENGINE
@@ -1351,11 +1202,11 @@ export default function App() {
         </Layout>
       </Layout>
 
-      {/* Settings Sync Drawer */}
+      {/* Settings Drawer */}
       <Drawer
         title={
           <Title level={4} style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <SettingOutlined /> සිටුවම් සහ දත්ත සංසන්දනය
+            <SettingOutlined /> සිටුවම් (Settings)
           </Title>
         }
         placement="right"
@@ -1376,101 +1227,7 @@ export default function App() {
           />
         </div>
         
-        <Divider style={{ margin: '16px 0' }} />
 
-        <Paragraph type="secondary" style={{ fontSize: '13px' }}>
-          ඔබ විසින් පාට කරන ලද බයිබල් පද වෙනත් උපාංග සමඟ සජීවීව සංසන්දනය (sync) කිරීම සඳහා Google Sheets පහසුකම භාවිතා කරන්න.
-        </Paragraph>
-
-        {/* Sync Settings Fields */}
-        <Space direction="vertical" style={{ width: '100%' }} size="large">
-          <div>
-            <Text strong style={{ display: 'block', marginBottom: '6px' }}>සංසන්දන කේතය (Sync Key):</Text>
-            <Input 
-              value={syncId} 
-              onChange={(e) => setSyncId(e.target.value.trim())}
-              style={{ width: '100%', height: '40px' }} 
-              placeholder="උදා: B-123456"
-              suffix={
-                <Tooltip title="කේතය පිටපත් කරන්න">
-                  <Button type="text" icon={<CopyOutlined />} onClick={() => handleCopyText(syncId)} />
-                </Tooltip>
-              }
-            />
-            <Text type="secondary" style={{ fontSize: '11px', marginTop: '4px', display: 'block' }}>
-              *වෙනත් උපාංගයකටද මෙම කේතයම (Sync Key) ඇතුලත් කිරීමෙන් උපාංග අතර දත්ත සජීවීව සංසන්දනය වේ.
-            </Text>
-          </div>
-
-          <div>
-            <Text strong style={{ display: 'block', marginBottom: '6px' }}>Google Apps Script API URL:</Text>
-            <Input 
-              value={googleScriptUrl} 
-              onChange={(e) => setGoogleScriptUrl(e.target.value.trim())}
-              style={{ width: '100%', height: '40px' }} 
-              placeholder="https://script.google.com/macros/s/..."
-              prefix={<LinkOutlined />}
-            />
-          </div>
-
-          <Button 
-            type="primary" 
-            block 
-            icon={<CloudSyncOutlined spin={syncing} />} 
-            onClick={() => syncBookmarks(googleScriptUrl, syncId)}
-            loading={syncing}
-            disabled={!googleScriptUrl}
-            style={{ height: '40px', borderRadius: '8px' }}
-          >
-            සජීවීව දත්ත ලබාගන්න (Sync Data Now)
-          </Button>
-        </Space>
-
-        <Divider />
-
-        <Title level={5} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <InfoCircleOutlined style={{ color: '#1890ff' }} /> Google Sheets සැකසීමේ පියවර
-        </Title>
-        
-        <Collapse ghost style={{ marginTop: '12px' }}>
-          <Collapse.Panel header="1. Google Sheet එකක් සාදා ගන්න" key="step1">
-            <Paragraph style={{ fontSize: '13px' }}>
-              1. ඔබගේ Google ගිණුමට ගොස් නව **Google Sheet** එකක් සාදන්න.<br />
-              2. එහි පළමු පේළියේ කිසිවක් ලියන්න එපා.
-            </Paragraph>
-          </Collapse.Panel>
-
-          <Collapse.Panel header="2. Apps Script කේතය ඇතුලත් කරන්න" key="step2">
-            <Paragraph style={{ fontSize: '13px' }}>
-              1. Google Sheet එකෙහි **Extensions -> Apps Script** යන්න ක්ලික් කරන්න.<br />
-              2. එහි ඇති කේතය ඉවත් කර, පහත දැක්වෙන සම්පූර්ණ කේතය එහි අලවන්න.<br />
-              3. Save කරන්න.
-            </Paragraph>
-            
-            <div style={{ background: '#1e293b', padding: '12px', borderRadius: '8px', marginBottom: '12px', position: 'relative' }}>
-              <Button 
-                type="text" 
-                icon={<CopyOutlined style={{ color: '#94a3b8' }} />} 
-                onClick={() => handleCopyText(appsScriptCode)} 
-                style={{ position: 'absolute', top: 8, right: 8 }}
-              />
-              <pre style={{ margin: 0, fontSize: '11px', color: '#f8fafc', maxHeight: '180px', overflowY: 'auto' }}>
-                {appsScriptCode}
-              </pre>
-            </div>
-          </Collapse.Panel>
-
-          <Collapse.Panel header="3. Web App එකක් ලෙස Deploy කරන්න" key="step3">
-            <Paragraph style={{ fontSize: '13px' }}>
-              1. Apps Script පිටුවේ **Deploy -> New deployment** ක්ලික් කරන්න.<br />
-              2. select type මඟින් **Web app** තෝරන්න.<br />
-              3. **Execute as**: `Me` ලෙස තෝරන්න.<br />
-              4. **Who has access**: `Anyone` ලෙස තෝරන්න.<br />
-              5. **Deploy** ක්ලික් කර, අවශ්‍ය නම් Access Permission ලබා දෙන්න.<br />
-              6. ලැබෙන **Web app URL** එක පිටපත් කරගෙන පැමිණ ඉහත ඇති URL කොටුවේ අලවන්න.
-            </Paragraph>
-          </Collapse.Panel>
-        </Collapse>
       </Drawer>
       
       {/* Lexicon Overlay Popup Tooltip */}
