@@ -37,14 +37,16 @@ export default function ReferencePanel({
         
         let finalData = data;
         try {
-          // Optimize references loading: only query for the specific chapter verses loaded in this panel
-          const refsMap = await referenceService.fetchReferencesForChapter(data);
-          finalData = data.map(v => ({
+          // Filter to the specific chapter verses (to support local bibles which return the full database)
+          const chapterVerses = data.filter(v => v.book === panel.book && v.chapter === panel.chapter);
+          const refsMap = await referenceService.fetchReferencesForChapter(chapterVerses);
+          finalData = chapterVerses.map(v => ({
             ...v,
             references: refsMap[`${v.book}_${v.chapter}_${v.verse}`] || []
           }));
         } catch (err) {
           console.error("Failed to load cross references for panel chapter", err);
+          finalData = data.filter(v => v.book === panel.book && v.chapter === panel.chapter);
         }
 
         if (active) {

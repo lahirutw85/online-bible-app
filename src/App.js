@@ -325,11 +325,18 @@ export default function App() {
         let finalData = data;
         try {
           if (showReferences) {
-            const refsMap = await referenceService.fetchReferencesForChapter(data);
-            finalData = data.map(v => ({
-              ...v,
-              references: refsMap[`${v.book}_${v.chapter}_${v.verse}`] || []
-            }));
+            // Filter to only the active chapter's verses (to support local bibles which return the full database)
+            const activeVerses = data.filter(v => v.book === selectedBook && v.chapter === selectedChapter);
+            const refsMap = await referenceService.fetchReferencesForChapter(activeVerses);
+            finalData = data.map(v => {
+              if (v.book === selectedBook && v.chapter === selectedChapter) {
+                return {
+                  ...v,
+                  references: refsMap[`${v.book}_${v.chapter}_${v.verse}`] || []
+                };
+              }
+              return v;
+            });
           }
         } catch (err) {
           console.error("Failed to load cross references for chapter:", err);
