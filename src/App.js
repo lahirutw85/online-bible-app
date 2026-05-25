@@ -771,14 +771,9 @@ export default function App() {
   }, [getLanguage]);
 
   const availableBooks = useMemo(() => {
-    const apiVersions = { "KJV": "eng_kjv", "ASV": "eng_asv", "BBE": "eng_bbe", "BSB": "BSB" };
-    if (apiVersions[version]) {
-      return activeBooks;
-    }
-    if (bibleData.length === 0) return [];
-    const bookCodes = new Set(bibleData.map(v => v.book));
-    return activeBooks.filter(b => bookCodes.has(b.code));
-  }, [bibleData, activeBooks, version]);
+    const apocrypha = ["Tob", "Jdt", "Wis", "Sir", "Bar", "1Macc", "2Macc"];
+    return activeBooks.filter(b => !apocrypha.includes(b.code));
+  }, [activeBooks]);
 
   const currentBookName = useMemo(() => {
     if (selectedBook === "bookmarks") {
