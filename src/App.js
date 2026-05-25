@@ -25,6 +25,7 @@ import {
   Card,
   Empty,
   message,
+  Switch,
   theme as antdTheme 
 } from 'antd';
 import { 
@@ -57,7 +58,8 @@ import {
   SiderContent,
   LexiconTooltip,
   VerseCard,
-  BookmarksView
+  BookmarksView,
+  ReferencePanel
 } from './features/bible';
 
 /* =========================================================================
@@ -253,6 +255,115 @@ export default function App() {
 
   // Instantiate Sync Service class dynamically mapped to credentials
   const syncService = useMemo(() => new SyncService(googleScriptUrl, syncId), [googleScriptUrl, syncId]);
+
+  /* --- K. Reading Preferences States --- */
+  const [showReferences, setShowReferences] = useState(() => {
+    const saved = localStorage.getItem("bible-show-references");
+    return saved !== "false";
+  });
+
+  useEffect(() => {
+    localStorage.setItem("bible-show-references", showReferences);
+  }, [showReferences]);
+
+  /* --- L. Split screen reference panels states --- */
+  const [referencePanels, setReferencePanels] = useState([]);
+  const [panelWidths, setPanelWidths] = useState([100]);
+  const [isDragging, setIsDragging] = useState(false);
+  const containerRef = React.useRef(null);
+  const lastWidthsByCount = React.useRef({});
+
+  // Save current widths for the current count of reference panels when dragging finishes or count changes
+  useEffect(() => {
+    if (!isDragging) {
+      lastWidthsByCount.current[referencePanels.length] = panelWidths;
+    }
+  }, [panelWidths, referencePanels.length, isDragging]);
+
+  // Sync panel widths on panel count changes
+  useEffect(() => {
+    const count = referencePanels.length;
+    // Check if we have saved widths for this exact panel count
+    if (lastWidthsByCount.current[count] && lastWidthsByCount.current[count].length === count + 1) {
+      setPanelWidths(lastWidthsByCount.current[count]);
+      return;
+    }
+
+    if (count === 0) {
+      setPanelWidths([100]);
+    } else if (count === 1) {
+      setPanelWidths([50, 50]);
+    } else if (count === 2) {
+      // Set the first two (Main and Panel 1) to 25% each, Panel 2 to 50%
+      setPanelWidths([25, 25, 50]);
+    } else {
+      // General formula for more panels
+      const eachLeft = Math.floor(50 / count);
+      const widths = Array(count).fill(eachLeft);
+      widths.push(100 - eachLeft * count);
+      setPanelWidths(widths);
+    }
+  }, [referencePanels.length]);
+
+  const handleOpenReference = (b, index = 0) => {
+    const newPanel = {
+      id: `ref-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      book: b.book,
+      chapter: b.chapter,
+      verse: b.verse,
+      version: b.version
+    };
+
+    setReferencePanels(prev => {
+      // Discard panels to the right of the clicked panel's level, then append the new one
+      const next = prev.slice(0, index);
+      next.push(newPanel);
+      return next;
+    });
+  };
+
+  const handleClosePanel = (index) => {
+    setReferencePanels(prev => prev.slice(0, index));
+  };
+
+  const startResizing = (mouseDownEvent, index) => {
+    mouseDownEvent.preventDefault();
+    setIsDragging(true);
+    const startX = mouseDownEvent.clientX;
+    const startWidthLeft = panelWidths[index];
+    const startWidthRight = panelWidths[index + 1];
+    
+    const container = containerRef.current;
+    if (!container) return;
+    const containerWidth = container.getBoundingClientRect().width;
+
+    const onMouseMove = (mouseMoveEvent) => {
+      const dx = mouseMoveEvent.clientX - startX;
+      const dWidthPercent = (dx / containerWidth) * 100;
+      
+      const newWidthLeft = Math.max(15, startWidthLeft + dWidthPercent);
+      
+      const totalCombined = startWidthLeft + startWidthRight;
+      const adjustedLeft = Math.min(newWidthLeft, totalCombined - 15);
+      const adjustedRight = totalCombined - adjustedLeft;
+
+      setPanelWidths(prev => {
+        const next = [...prev];
+        next[index] = adjustedLeft;
+        next[index + 1] = adjustedRight;
+        return next;
+      });
+    };
+
+    const onMouseUp = () => {
+      setIsDragging(false);
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onMouseUp);
+    };
+
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', onMouseUp);
+  };
 
   /* =========================================================================
      SECTION 3: EFFECT HOOKS (LIFECYCLE & INITIAL SYNC)
@@ -707,7 +818,8 @@ export default function App() {
         searchLimitNotice: "සෙවුම් ප්‍රතිඵල ඉතා විශාල බැවින් පළමු පද 150 පමණක් පෙන්වනු ලැබේ.",
         compareModeActive: "සංසන්දනය අක්‍රිය කරන්න",
         compareModeInactive: "සංසන්දනය (Compare)",
-        compareVersionLabel: "සංසන්දනය කරන පරිවර්තනය (Compare Version):"
+        compareVersionLabel: "සංසන්දනය කරන පරිවර්තනය (Compare Version):",
+        showReferencesLabel: "සබැඳි පද (Cross-References) පෙන්වන්න"
       },
       ta: {
         subtitle: "பரிசுத்த வேதாகமம்",
@@ -743,7 +855,8 @@ export default function App() {
         searchLimitNotice: "பெரிய தேடல் முடிவுகள் என்பதால், முதல் 150 வசனங்கள் மட்டுமே காட்டப்படுகின்றன.",
         compareModeActive: "ஒப்பீட்டை முடக்கு",
         compareModeInactive: "வசனங்களை ஒப்பிடு (Compare)",
-        compareVersionLabel: "ஒப்பீட்டு பதிப்பு (Compare Version):"
+        compareVersionLabel: "ஒப்பீட்டு பதிப்பு (Compare Version):",
+        showReferencesLabel: "ஒப்புமை வசனங்களைக் காட்டு (Cross-References)"
       },
       en: {
         subtitle: "Holy Bible",
@@ -779,7 +892,8 @@ export default function App() {
         searchLimitNotice: "Due to large search results, only the first 150 verses are shown.",
         compareModeActive: "Disable Compare",
         compareModeInactive: "Compare Versions",
-        compareVersionLabel: "Compare Version:"
+        compareVersionLabel: "Compare Version:",
+        showReferencesLabel: "Show Cross-References"
       }
     };
     return strings[lang]?.[key] || strings.si[key] || key;
@@ -937,218 +1051,280 @@ export default function App() {
           )}
 
           {/* Main Content Area */}
-          <Content style={{ padding: isMobile ? '16px' : '32px', overflowY: 'auto', height: 'calc(100vh - 70px)' }}>
-            {loading || searchLoading || (compareMode && compareLoading) ? (
-              <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', height: '60vh', gap: '16px' }}>
-                <Spin indicator={antIcon} />
-                <Text type="secondary" style={{ fontSize: '15px' }}>{t('loadingText')}</Text>
-              </div>
-            ) : (
-              <div className="animate-fade-in" style={{ maxWidth: '960px', margin: '0 auto' }}>
-                
-                {/* 1. BOOKMARKS VIEW */}
-                {selectedBook === "bookmarks" ? (
-                  <BookmarksView 
-                    bookmarks={bookmarks}
-                    getBookName={getBookName}
-                    handleJumpToVerse={handleJumpToVerse}
-                    handleRemoveBookmark={handleRemoveBookmark}
-                    isMobile={isMobile}
-                    t={t}
-                  />
-                ) : (
+          {/* Main Content Area in Flex row container */}
+          <div 
+            ref={containerRef} 
+            style={{ 
+              display: 'flex', 
+              flexGrow: 1, 
+              height: 'calc(100vh - 70px)', 
+              overflow: 'hidden', 
+              position: 'relative',
+              width: '100%' 
+            }}
+          >
+            <Content style={{ 
+              width: `${panelWidths[0]}%`, 
+              padding: isMobile ? '16px' : '32px', 
+              overflowY: 'auto', 
+              height: '100%',
+              transition: isDragging ? 'none' : 'width 0.3s ease',
+              boxSizing: 'border-box'
+            }}>
+              {loading || searchLoading || (compareMode && compareLoading) ? (
+                <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', height: '60vh', gap: '16px' }}>
+                  <Spin indicator={antIcon} />
+                  <Text type="secondary" style={{ fontSize: '15px' }}>{t('loadingText')}</Text>
+                </div>
+              ) : (
+                <div className="animate-fade-in" style={{ maxWidth: '960px', margin: '0 auto' }}>
                   
-                  // 2. REGULAR BIBLE READING VIEW
-                  <div>
-                    {/* Header Navigation card or Search result header */}
-                    {searchActive ? (
-                      <div className="hero-section" style={{ background: theme === 'dark' ? 'linear-gradient(135deg, #1e293b 0%, #0f172a 100%)' : 'linear-gradient(135deg, #1f4068 0%, #162447 100%)', border: theme === 'dark' ? '1px solid rgba(255, 255, 255, 0.08)' : 'none' }}>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                          <div>
-                            <Title level={isMobile ? 4 : 3} style={{ color: 'white', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                              <SearchOutlined /> {t('searchResultTitle')}: "{searchTerm}"
-                            </Title>
-                            <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: '14px', display: 'block', marginTop: '6px' }}>
-                              {searchScope === 'book' ? `${currentBookName} (${t('bookSearchScope')})` : t('globalSearchScope')}
-                            </Text>
-                          </div>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '4px' }}>
-                            <div style={{ background: 'rgba(255,255,255,0.1)', padding: '6px 12px', borderRadius: '6px' }}>
-                              <Text style={{ color: 'white', fontWeight: 600, fontSize: '12px' }}>
-                                {t('resultsCount')}: {displayedVerses.length}
+                  {/* 1. BOOKMARKS VIEW */}
+                  {selectedBook === "bookmarks" ? (
+                    <BookmarksView 
+                      bookmarks={bookmarks}
+                      getBookName={getBookName}
+                      handleJumpToVerse={handleJumpToVerse}
+                      handleRemoveBookmark={handleRemoveBookmark}
+                      isMobile={isMobile}
+                      t={t}
+                    />
+                  ) : (
+                    
+                    // 2. REGULAR BIBLE READING VIEW
+                    <div>
+                      {/* Header Navigation card or Search result header */}
+                      {searchActive ? (
+                        <div className="hero-section" style={{ background: theme === 'dark' ? 'linear-gradient(135deg, #1e293b 0%, #0f172a 100%)' : 'linear-gradient(135deg, #1f4068 0%, #162447 100%)', border: theme === 'dark' ? '1px solid rgba(255, 255, 255, 0.08)' : 'none' }}>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                            <div>
+                              <Title level={isMobile ? 4 : 3} style={{ color: 'white', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <SearchOutlined /> {t('searchResultTitle')}: "{searchTerm}"
+                              </Title>
+                              <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: '14px', display: 'block', marginTop: '6px' }}>
+                                {searchScope === 'book' ? `${currentBookName} (${t('bookSearchScope')})` : t('globalSearchScope')}
                               </Text>
                             </div>
-                            <Button 
-                              type="primary" 
-                              danger 
-                              size="small"
-                              icon={<ClearOutlined />} 
-                              onClick={clearSearch}
-                              style={{ borderRadius: '6px' }}
-                            >
-                              {t('clearSearchButton')}
-                            </Button>
-                          </div>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="hero-section" style={{ background: theme === 'dark' ? 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)' : 'linear-gradient(135deg, #1e3c72 0%, #2a5298 100%)' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', flexDirection: isMobile ? 'column' : 'row', gap: isMobile ? '16px' : '0px', alignItems: isMobile ? 'stretch' : 'center' }}>
-                          <div>
-                            <Title level={isMobile ? 3 : 2} style={{ color: 'white', margin: 0, fontWeight: 700, textAlign: isMobile ? 'center' : 'left' }}>
-                              {currentBookName}
-                            </Title>
-                            <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: '14px', display: 'block', marginTop: '4px', textAlign: isMobile ? 'center' : 'left' }}>
-                              {t('chapterLabel')}: {selectedChapter} / {totalChapters}
-                            </Text>
-                          </div>
-                          <Space size="middle" style={{ justifyContent: isMobile ? 'center' : 'flex-end' }}>
-                            <Button 
-                              disabled={selectedBook === availableBooks[0]?.code && selectedChapter === 1}
-                              onClick={handlePrevChapter} 
-                              style={{ background: 'rgba(255,255,255,0.15)', border: 'none', color: 'white', height: '36px', borderRadius: '8px' }}
-                            >
-                              {t('previousChapter')}
-                            </Button>
-                            <Button 
-                              disabled={selectedBook === availableBooks[availableBooks.length - 1]?.code && selectedChapter === totalChapters}
-                              onClick={handleNextChapter} 
-                              style={{ background: 'rgba(255,255,255,0.25)', border: 'none', color: 'white', height: '36px', borderRadius: '8px', fontWeight: 600 }}
-                            >
-                              {t('nextChapter')}
-                            </Button>
-                          </Space>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Chapters list in reading mode */}
-                    {!searchActive && totalChapters > 1 && (
-                      <div style={{ marginBottom: '24px' }}>
-                        <Text type="secondary" style={{ display: 'block', marginBottom: '8px', fontWeight: 600 }}>{t('selectChapterLabel')}</Text>
-                        <div className="chapter-grid">
-                          {Array.from({ length: totalChapters }, (_, i) => i + 1).map(ch => (
-                            <div 
-                              key={ch} 
-                              className={`chapter-badge ${selectedChapter === ch ? 'active' : ''}`}
-                              onClick={() => setSelectedChapter(ch)}
-                            >
-                              {ch}
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '4px' }}>
+                              <div style={{ background: 'rgba(255,255,255,0.1)', padding: '6px 12px', borderRadius: '6px' }}>
+                                <Text style={{ color: 'white', fontWeight: 600, fontSize: '12px' }}>
+                                  {t('resultsCount')}: {displayedVerses.length}
+                                </Text>
+                              </div>
+                              <Button 
+                                type="primary" 
+                                danger 
+                                size="small"
+                                icon={<ClearOutlined />} 
+                                onClick={clearSearch}
+                                style={{ borderRadius: '6px' }}
+                              >
+                                {t('clearSearchButton')}
+                              </Button>
                             </div>
-                          ))}
+                          </div>
                         </div>
-                      </div>
-                    )}
-
-                    {/* Compare mode column headers */}
-                    {compareMode && !searchActive && displayedVerses.length > 0 && !isMobile && (
-                      <div style={{ 
-                        display: 'flex', 
-                        gap: '24px', 
-                        padding: '12px 24px', 
-                        background: theme === 'dark' ? '#1e293b' : '#e6f7ff', 
-                        borderRadius: '12px', 
-                        marginBottom: '16px', 
-                        fontWeight: 600,
-                        border: '1px solid var(--border-color)',
-                        fontSize: '14px',
-                        color: 'var(--accent-color)'
-                      }}>
-                        <div style={{ flex: 1, textAlign: 'center', borderRight: '1px solid var(--border-color)', paddingRight: '16px' }}>
-                          {versionsList.find(x => x.value === version)?.label || version}
-                        </div>
-                        <div style={{ flex: 1, textAlign: 'center' }}>
-                          {versionsList.find(x => x.value === compareVersion)?.label || compareVersion}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Verses rendering */}
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                      {displayedVerses.length > 0 ? (
-                        displayedVerses.slice(0, 150).map((v, i) => {
-                          const bookName = activeBooks.find(b => b.code === v.book)?.name || v.book;
-                          
-                          return (
-                            <VerseCard 
-                              key={i}
-                              v={v}
-                              bookName={bookName}
-                              bookmarks={bookmarks}
-                              version={version}
-                              compareVersion={compareVersion}
-                              compareMode={compareMode}
-                              compareBibleData={compareBibleData}
-                              isMobile={isMobile}
-                              theme={theme}
-                              handleAddBookmark={handleAddBookmark}
-                              handleRemoveBookmark={handleRemoveBookmark}
-                              handleVerseDoubleClick={handleVerseDoubleClick}
-                              isEnglishVersion={isEnglishVersion}
-                              t={t}
-                              searchActive={searchActive}
-                              searchTerm={searchTerm}
-                            />
-                          );
-                        })
                       ) : (
-                        <Empty 
-                          image={Empty.PRESENTED_IMAGE_SIMPLE} 
-                          description={
-                            <span style={{ fontSize: '14px', color: '#718096' }}>
-                              {searchActive ? t('searchNoResults') : t('noVersesForChapter')}
-                            </span>
-                          } 
-                          style={{ background: 'var(--card-bg)', padding: '48px 24px', borderRadius: '12px', border: '1px solid var(--border-color)' }}
-                        >
-                          {searchActive && (
-                            <Button type="primary" onClick={clearSearch}>{t('clearSearch')}</Button>
-                          )}
-                        </Empty>
+                        <div className="hero-section" style={{ background: theme === 'dark' ? 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)' : 'linear-gradient(135deg, #1e3c72 0%, #2a5298 100%)' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', flexDirection: isMobile ? 'column' : 'row', gap: isMobile ? '16px' : '0px', alignItems: isMobile ? 'stretch' : 'center' }}>
+                            <div>
+                              <Title level={isMobile ? 3 : 2} style={{ color: 'white', margin: 0, fontWeight: 700, textAlign: isMobile ? 'center' : 'left' }}>
+                                {currentBookName}
+                              </Title>
+                              <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: '14px', display: 'block', marginTop: '4px', textAlign: isMobile ? 'center' : 'left' }}>
+                                {t('chapterLabel')}: {selectedChapter} / {totalChapters}
+                              </Text>
+                            </div>
+                            <Space size="middle" style={{ justifyContent: isMobile ? 'center' : 'flex-end' }}>
+                              <Button 
+                                disabled={selectedBook === availableBooks[0]?.code && selectedChapter === 1}
+                                onClick={handlePrevChapter} 
+                                style={{ background: 'rgba(255,255,255,0.15)', border: 'none', color: 'white', height: '36px', borderRadius: '8px' }}
+                              >
+                                {t('previousChapter')}
+                              </Button>
+                              <Button 
+                                disabled={selectedBook === availableBooks[availableBooks.length - 1]?.code && selectedChapter === totalChapters}
+                                onClick={handleNextChapter} 
+                                style={{ background: 'rgba(255,255,255,0.25)', border: 'none', color: 'white', height: '36px', borderRadius: '8px', fontWeight: 600 }}
+                              >
+                                {t('nextChapter')}
+                              </Button>
+                            </Space>
+                          </div>
+                        </div>
                       )}
 
-                      {/* Search pagination notice */}
-                      {searchActive && displayedVerses.length > 150 && (
-                        <Card style={{ textAlign: 'center', background: 'var(--card-bg)', borderRadius: '12px', border: '1px dashed var(--border-color)' }}>
-                          <CompassOutlined style={{ fontSize: '24px', color: '#718096', marginBottom: '8px' }} />
-                          <Paragraph type="secondary" style={{ margin: 0 }}>
-                            {t('searchLimitNotice')}
-                          </Paragraph>
-                        </Card>
+                      {/* Chapters list in reading mode */}
+                      {!searchActive && totalChapters > 1 && (
+                        <div style={{ marginBottom: '24px' }}>
+                          <Text type="secondary" style={{ display: 'block', marginBottom: '8px', fontWeight: 600 }}>{t('selectChapterLabel')}</Text>
+                          <div className="chapter-grid">
+                            {Array.from({ length: totalChapters }, (_, i) => i + 1).map(ch => (
+                              <div 
+                                key={ch} 
+                                className={`chapter-badge ${selectedChapter === ch ? 'active' : ''}`}
+                                onClick={() => setSelectedChapter(ch)}
+                              >
+                                {ch}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Compare mode column headers */}
+                      {compareMode && !searchActive && displayedVerses.length > 0 && !isMobile && (
+                        <div style={{ 
+                          display: 'flex', 
+                          gap: '24px', 
+                          padding: '12px 24px', 
+                          background: theme === 'dark' ? '#1e293b' : '#e6f7ff', 
+                          borderRadius: '12px', 
+                          marginBottom: '16px', 
+                          fontWeight: 600,
+                          border: '1px solid var(--border-color)',
+                          fontSize: '14px',
+                          color: 'var(--accent-color)'
+                        }}>
+                          <div style={{ flex: 1, textAlign: 'center', borderRight: '1px solid var(--border-color)', paddingRight: '16px' }}>
+                            {versionsList.find(x => x.value === version)?.label || version}
+                          </div>
+                          <div style={{ flex: 1, textAlign: 'center' }}>
+                            {versionsList.find(x => x.value === compareVersion)?.label || compareVersion}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Verses rendering */}
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                        {displayedVerses.length > 0 ? (
+                          displayedVerses.slice(0, 150).map((v, i) => {
+                            const bookName = activeBooks.find(b => b.code === v.book)?.name || v.book;
+                            
+                            return (
+                              <VerseCard 
+                                key={i}
+                                v={v}
+                                bookName={bookName}
+                                bookmarks={bookmarks}
+                                version={version}
+                                compareVersion={compareVersion}
+                                compareMode={compareMode}
+                                compareBibleData={compareBibleData}
+                                isMobile={isMobile}
+                                theme={theme}
+                                handleAddBookmark={handleAddBookmark}
+                                handleRemoveBookmark={handleRemoveBookmark}
+                                handleVerseDoubleClick={handleVerseDoubleClick}
+                                isEnglishVersion={isEnglishVersion}
+                                t={t}
+                                searchActive={searchActive}
+                                searchTerm={searchTerm}
+                                handleFetchVerseText={(refBook, refChapter, refVerse, ver) => bibleService.fetchSingleVerse(refBook, refChapter, refVerse, ver || version)}
+                                handleJumpToVerse={(b) => handleOpenReference(b, 0)}
+                                getBookName={getBookName}
+                                showReferences={showReferences}
+                              />
+                            );
+                          })
+                        ) : (
+                          <Empty 
+                            image={Empty.PRESENTED_IMAGE_SIMPLE} 
+                            description={
+                              <span style={{ fontSize: '14px', color: '#718096' }}>
+                                {searchActive ? t('searchNoResults') : t('noVersesForChapter')}
+                              </span>
+                            } 
+                            style={{ background: 'var(--card-bg)', padding: '48px 24px', borderRadius: '12px', border: '1px solid var(--border-color)' }}
+                          >
+                            {searchActive && (
+                              <Button type="primary" onClick={clearSearch}>{t('clearSearch')}</Button>
+                            )}
+                          </Empty>
+                        )}
+
+                        {/* Search pagination notice */}
+                        {searchActive && displayedVerses.length > 150 && (
+                          <Card style={{ textAlign: 'center', background: 'var(--card-bg)', borderRadius: '12px', border: '1px dashed var(--border-color)' }}>
+                            <CompassOutlined style={{ fontSize: '24px', color: '#718096', marginBottom: '8px' }} />
+                            <Paragraph type="secondary" style={{ margin: 0 }}>
+                              {t('searchLimitNotice')}
+                            </Paragraph>
+                          </Card>
+                        )}
+                      </div>
+
+                      {/* Navigation footer */}
+                      {!searchActive && (
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '32px', padding: '16px 0', borderTop: '1px solid var(--border-color)', flexDirection: isMobile ? 'column' : 'row', gap: isMobile ? '16px' : '0px' }}>
+                          <Button 
+                            disabled={selectedBook === availableBooks[0]?.code && selectedChapter === 1}
+                            onClick={handlePrevChapter} 
+                            icon={<ClearOutlined rotate={180} />}
+                            size="large"
+                            style={{ borderRadius: '8px', width: isMobile ? '100%' : 'auto' }}
+                          >
+                            {t('previousChapter')}
+                          </Button>
+                          <Text type="secondary" style={{ fontWeight: 500 }}>
+                            {getLanguage() === 'si' ? `${currentBookName} : ${selectedChapter} වන පරිච්ඡේදය` : `${currentBookName} : ${t('chapterLabel')} ${selectedChapter}`}
+                          </Text>
+                          <Button 
+                            disabled={selectedBook === availableBooks[availableBooks.length - 1]?.code && selectedChapter === totalChapters}
+                            onClick={handleNextChapter} 
+                            icon={<ClearOutlined />}
+                            size="large"
+                            style={{ borderRadius: '8px', width: isMobile ? '100%' : 'auto' }}
+                          >
+                            {t('nextChapter')}
+                          </Button>
+                        </div>
                       )}
                     </div>
+                  )}
+                </div>
+              )}
+            </Content>
 
-                    {/* Navigation footer */}
-                    {!searchActive && (
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '32px', padding: '16px 0', borderTop: '1px solid var(--border-color)', flexDirection: isMobile ? 'column' : 'row', gap: isMobile ? '16px' : '0px' }}>
-                        <Button 
-                          disabled={selectedBook === availableBooks[0]?.code && selectedChapter === 1}
-                          onClick={handlePrevChapter} 
-                          icon={<ClearOutlined rotate={180} />}
-                          size="large"
-                          style={{ borderRadius: '8px', width: isMobile ? '100%' : 'auto' }}
-                        >
-                          {t('previousChapter')}
-                        </Button>
-                        <Text type="secondary" style={{ fontWeight: 500 }}>
-                          {getLanguage() === 'si' ? `${currentBookName} : ${selectedChapter} වන පරිච්ඡේදය` : `${currentBookName} : ${t('chapterLabel')} ${selectedChapter}`}
-                        </Text>
-                        <Button 
-                          disabled={selectedBook === availableBooks[availableBooks.length - 1]?.code && selectedChapter === totalChapters}
-                          onClick={handleNextChapter} 
-                          icon={<ClearOutlined />}
-                          size="large"
-                          style={{ borderRadius: '8px', width: isMobile ? '100%' : 'auto' }}
-                        >
-                          {t('nextChapter')}
-                        </Button>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            )}
-          </Content>
+            {/* Draggable vertical panel splits for cross-references */}
+            {referencePanels.map((panel, idx) => (
+              <React.Fragment key={panel.id}>
+                <div 
+                  onMouseDown={(e) => startResizing(e, idx)}
+                  style={{
+                    width: '6px',
+                    cursor: 'col-resize',
+                    background: theme === 'dark' ? '#334155' : '#cbd5e1',
+                    transition: 'background 0.2s',
+                    height: '100%',
+                    zIndex: 10,
+                    position: 'relative'
+                  }}
+                  className="panel-divider"
+                  title="Drag to resize"
+                />
+                <div style={{ 
+                  width: `${panelWidths[idx + 1]}%`, 
+                  height: '100%', 
+                  transition: isDragging ? 'none' : 'width 0.3s ease',
+                  overflowY: 'hidden',
+                  boxSizing: 'border-box'
+                }}>
+                  <ReferencePanel 
+                    panel={panel}
+                    onClose={() => handleClosePanel(idx)}
+                    handleJumpToVerse={(b) => handleOpenReference(b, idx + 1)}
+                    handleFetchVerseText={(refBook, refChapter, refVerse, ver) => 
+                      bibleService.fetchSingleVerse(refBook, refChapter, refVerse, ver || version)
+                    }
+                    getBookName={getBookName}
+                    showReferences={showReferences}
+                  />
+                </div>
+              </React.Fragment>
+            ))}
+          </div>
         </Layout>
       </Layout>
 
@@ -1165,11 +1341,23 @@ export default function App() {
         open={settingsVisible}
         bodyStyle={{ padding: isMobile ? '16px' : '24px' }}
       >
+        {/* General Settings Section */}
+        <Title level={5} style={{ marginBottom: '16px', fontSize: '15px' }}>කියවීමේ සැකසුම් (General Settings)</Title>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: theme === 'dark' ? '#1e293b' : '#f8fafc', padding: '12px 16px', borderRadius: '8px', border: '1px solid var(--border-color)', marginBottom: '24px' }}>
+          <span style={{ fontWeight: 500, fontSize: '14px', color: 'var(--text-primary)' }}>
+            {t('showReferencesLabel')}
+          </span>
+          <Switch 
+            checked={showReferences} 
+            onChange={(checked) => setShowReferences(checked)} 
+          />
+        </div>
+        
+        <Divider style={{ margin: '16px 0' }} />
+
         <Paragraph type="secondary" style={{ fontSize: '13px' }}>
           ඔබ විසින් පාට කරන ලද බයිබල් පද වෙනත් උපාංග සමඟ සජීවීව සංසන්දනය (sync) කිරීම සඳහා Google Sheets පහසුකම භාවිතා කරන්න.
         </Paragraph>
-        
-        <Divider style={{ margin: '12px 0' }} />
 
         {/* Sync Settings Fields */}
         <Space direction="vertical" style={{ width: '100%' }} size="large">

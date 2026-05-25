@@ -133,6 +133,26 @@ export default class BibleService {
   }
 
   /**
+   * Fetches a single verse text dynamically by fetching its chapter first.
+   * Resolves the text string corresponding to the target verse coordinates.
+   * @param {string} book 
+   * @param {number} chapter 
+   * @param {number} verse 
+   * @param {string} version 
+   * @returns {Promise<string|null>} verse text or null
+   */
+  async fetchSingleVerse(book, chapter, verse, version) {
+    try {
+      const chapterVerses = await this.fetchChapter(book, chapter, version);
+      const matched = chapterVerses.find(v => v.book === book && v.chapter === chapter && v.verse === verse);
+      return matched ? matched.text : null;
+    } catch (err) {
+      console.error(`Failed to fetch single verse ${book} ${chapter}:${verse}`, err);
+      return null;
+    }
+  }
+
+  /**
    * Fetches and flattens the complete Bible database of a remote API translation.
    * Cached inside `searchCache` variable to enable instant, high-performance in-memory search.
    * @param {string} version 

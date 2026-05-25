@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Card, Popover, Typography, Button } from 'antd';
 import { DeleteOutlined } from '@ant-design/icons';
+import ReferenceLink from './ReferenceLink';
 
 const { Paragraph } = Typography;
 
@@ -13,7 +14,7 @@ const { Paragraph } = Typography;
  * VerseCard Component
  * 
  * @param {Object} props
- * @param {Object} props.v - The main verse data object containing {book, chapter, verse, text}.
+ * @param {Object} props.v - The main verse data object containing {book, chapter, verse, text, references}.
  * @param {string} props.bookName - The display name of the book.
  * @param {Array<Object>} props.bookmarks - Array of saved bookmark objects.
  * @param {string} props.version - The active reading translation (e.g. 'ROV').
@@ -21,6 +22,7 @@ const { Paragraph } = Typography;
  * @param {boolean} props.compareMode - Active state indicating if comparison columns/rows should be displayed.
  * @param {Array<Object>} props.compareBibleData - Array of verse texts for the comparison translation.
  * @param {boolean} props.isMobile - Viewport scale responsive flag.
+ * @param {string} props.theme - Active style theme name ('light' | 'dark').
  * @param {Function} props.handleAddBookmark - Invokes bookmark save operations.
  * @param {Function} props.handleRemoveBookmark - Invokes bookmark delete operations.
  * @param {Function} props.handleVerseDoubleClick - Triggers word-level lexicon popups.
@@ -28,6 +30,9 @@ const { Paragraph } = Typography;
  * @param {Function} props.t - Multi-language translation lookup function.
  * @param {boolean} props.searchActive - State check indicating if rendering a search query result list.
  * @param {string} props.searchTerm - Active query text string entered by user.
+ * @param {Function} props.handleFetchVerseText - Dynamically loads individual verse text for tooltips.
+ * @param {Function} props.handleJumpToVerse - Navigates reader back to the target chapter and verse card.
+ * @param {Function} props.getBookName - Resolver to match book codes to language names.
  */
 
 // Curated colors palette list with custom HSLA codes for aesthetic translucent rendering
@@ -70,9 +75,59 @@ export default function VerseCard({
   isEnglishVersion,
   t,
   searchActive,
-  searchTerm
+  searchTerm,
+  handleFetchVerseText,
+  handleJumpToVerse,
+  getBookName,
+  showReferences
 }) {
-  
+  const [refsExpanded, setRefsExpanded] = useState(false);
+
+  const renderReferences = (references, columnVersion) => {
+    if (!references || references.length === 0) return null;
+    
+    const limit = 5;
+    const showExpandButton = references.length > limit;
+    const displayedRefs = (showExpandButton && !refsExpanded) 
+      ? references.slice(0, limit) 
+      : references;
+      
+    return (
+      <span className="verse-references" style={{ marginLeft: '8px', fontSize: '12px', display: 'inline' }}>
+        {displayedRefs.map((ref, idx) => (
+          <ReferenceLink 
+            key={idx} 
+            refObj={ref} 
+            version={columnVersion} 
+            getBookName={getBookName}
+            handleJumpToVerse={handleJumpToVerse}
+            handleFetchVerseText={handleFetchVerseText}
+          />
+        ))}
+        {showExpandButton && (
+          <span 
+            onClick={(e) => {
+              e.stopPropagation();
+              setRefsExpanded(!refsExpanded);
+            }}
+            style={{ 
+              color: 'var(--accent-color)', 
+              cursor: 'pointer', 
+              fontWeight: 'bold', 
+              marginLeft: '4px',
+              fontSize: '11px',
+              display: 'inline-block',
+              userSelect: 'none'
+            }}
+            className="references-toggle-arrow"
+          >
+            {refsExpanded ? ' ◀' : ` ... ▶ (${references.length - limit} more)`}
+          </span>
+        )}
+      </span>
+    );
+  };
+
   /**
    * Highlights matching words within search queries using RegExp.
    * Splits string by searchTerm to avoid dangerously injecting raw unescaped strings,
@@ -194,6 +249,7 @@ export default function VerseCard({
                 >
                   {searchActive ? renderHighlightedText(v.text, searchTerm) : v.text}
                 </span>
+                {showReferences && renderReferences(v.references, version)}
               </span>
             </Paragraph>
           </div>
@@ -210,6 +266,7 @@ export default function VerseCard({
               >
                 {searchActive ? renderHighlightedText(compareText, searchTerm) : compareText}
               </span>
+              {showReferences && renderReferences(v.references, compareVersion)}
             </Paragraph>
           </div>
         </div>
@@ -236,6 +293,7 @@ export default function VerseCard({
                 >
                   {searchActive ? renderHighlightedText(v.text, searchTerm) : v.text}
                 </span>
+                {showReferences && renderReferences(v.references, version)}
               </span>
             </Paragraph>
           </div>
@@ -256,6 +314,7 @@ export default function VerseCard({
               >
                 {searchActive ? renderHighlightedText(compareText, searchTerm) : compareText}
               </span>
+              {showReferences && renderReferences(v.references, compareVersion)}
             </Paragraph>
           </div>
         </div>
@@ -280,6 +339,7 @@ export default function VerseCard({
           >
             {searchActive ? renderHighlightedText(v.text, searchTerm) : v.text}
           </span>
+          {showReferences && renderReferences(v.references, version)}
         </span>
       </Paragraph>
     );
