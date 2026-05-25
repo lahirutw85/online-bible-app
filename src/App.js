@@ -54,6 +54,7 @@ import {
   LexiconService,
   BookmarkService,
   SyncService,
+  ReferenceService,
   HeaderBar,
   SiderContent,
   LexiconTooltip,
@@ -256,6 +257,9 @@ export default function App() {
   // Instantiate Sync Service class dynamically mapped to credentials
   const syncService = useMemo(() => new SyncService(googleScriptUrl, syncId), [googleScriptUrl, syncId]);
 
+  // Instantiate Reference Service class for loading cross references
+  const referenceService = useMemo(() => new ReferenceService(), []);
+
   /* --- K. Reading Preferences States --- */
   const [showReferences, setShowReferences] = useState(() => {
     const saved = localStorage.getItem("bible-show-references");
@@ -453,24 +457,43 @@ export default function App() {
     }
   }, [compareVersion, bibleService]);
 
-  /**
-   * Effect: Chapter Loader (Primary Bible).
-   */
   useEffect(() => {
+    let active = true;
     setLoading(true);
     bibleService.fetchChapter(selectedBook, selectedChapter, version)
-      .then(data => {
-        setBibleData(data);
-        if (!bibleService.isApiVersion(version)) {
-          setIsFullLoaded(true);
+      .then(async (data) => {
+        if (!active) return;
+        
+        let finalData = data;
+        try {
+          if (showReferences) {
+            const refsMap = await referenceService.fetchReferencesForChapter(data);
+            finalData = data.map(v => ({
+              ...v,
+              references: refsMap[`${v.book}_${v.chapter}_${v.verse}`] || []
+            }));
+          }
+        } catch (err) {
+          console.error("Failed to load cross references for chapter:", err);
         }
-        setLoading(false);
+
+        if (active) {
+          setBibleData(finalData);
+          if (!bibleService.isApiVersion(version)) {
+            setIsFullLoaded(true);
+          }
+          setLoading(false);
+        }
       })
       .catch(err => {
         console.error("API Fetch error:", err);
-        setLoading(false);
+        if (active) setLoading(false);
       });
-  }, [version, selectedBook, selectedChapter, isFullLoaded, bibleService]);
+
+    return () => {
+      active = false;
+    };
+  }, [version, selectedBook, selectedChapter, isFullLoaded, showReferences, bibleService, referenceService]);
 
   /**
    * Effect: Chapter Loader (Compare Mode Bible).
