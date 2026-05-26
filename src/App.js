@@ -1117,9 +1117,14 @@ export default function App() {
                           <div style={{ flex: 1, textAlign: 'center', borderRight: '1px solid var(--border-color)', paddingRight: '16px' }}>
                             {versionsList.find(x => x.value === version)?.label || version}
                           </div>
-                          <div style={{ flex: 1, textAlign: 'center' }}>
+                          <div style={{ flex: 1, textAlign: 'center', borderRight: threeWayCompare ? '1px solid var(--border-color)' : 'none', paddingRight: threeWayCompare ? '16px' : '0px' }}>
                             {versionsList.find(x => x.value === compareVersion)?.label || compareVersion}
                           </div>
+                          {threeWayCompare && (
+                            <div style={{ flex: 1, textAlign: 'center' }}>
+                              {versionsList.find(x => x.value === compareVersion3)?.label || compareVersion3}
+                            </div>
+                          )}
                         </div>
                       )}
 
