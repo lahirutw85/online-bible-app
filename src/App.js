@@ -113,7 +113,7 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   
   /* --- C. Reading View & Navigation Context States --- */
-  const [version, setVersion] = useState("ROV");
+  const [version, setVersion] = useState("SINBIBLE");
   const [selectedBook, setSelectedBook] = useState("Gen");
   const [selectedChapter, setSelectedChapter] = useState(1);
   
