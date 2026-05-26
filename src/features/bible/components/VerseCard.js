@@ -85,34 +85,20 @@ export default function VerseCard({
   showReferences,
   playingAudioId,
   playAudio,
-  stopAudio
+  stopAudio,
+  audioMap
 }) {
   const [refsExpanded, setRefsExpanded] = useState(false);
   const [audioExists, setAudioExists] = useState(false);
 
   useEffect(() => {
-    if (version === 'SINBIBLE' && v.book && v.chapter && v.verse) {
-      const audioUrl = `${process.env.PUBLIC_URL}/audio/${v.book}/${v.chapter}/${v.book.toUpperCase()}_${v.chapter}_${v.verse}.mp3`;
-      if (typeof fetch === 'function') {
-        const promise = fetch(audioUrl, { method: 'HEAD' });
-        if (promise && typeof promise.then === 'function') {
-          promise
-            .then(res => {
-              setAudioExists(res ? res.ok : false);
-            })
-            .catch(() => {
-              setAudioExists(false);
-            });
-        } else {
-          setAudioExists(false);
-        }
-      } else {
-        setAudioExists(false);
-      }
+    if (version === 'SINBIBLE' && v.book && v.chapter && v.verse && audioMap) {
+      const key = `${v.book.toUpperCase()}_${v.chapter}_${v.verse}`;
+      setAudioExists(!!audioMap[key]);
     } else {
       setAudioExists(false);
     }
-  }, [v.book, v.chapter, v.verse, version]);
+  }, [v.book, v.chapter, v.verse, version, audioMap]);
 
   const renderReferences = (references, columnVersion) => {
     if (!references || references.length === 0) return null;
@@ -431,12 +417,16 @@ export default function VerseCard({
   const isPlaying = playingAudioId === `verse-${v.book}-${v.chapter}-${v.verse}`;
 
   const handleAudioClick = () => {
-    if (!audioExists) return;
+    if (!audioExists || !audioMap) return;
     if (isPlaying) {
       stopAudio();
     } else {
-      const audioUrl = `${process.env.PUBLIC_URL}/audio/${v.book}/${v.chapter}/${v.book.toUpperCase()}_${v.chapter}_${v.verse}.mp3`;
-      playAudio(`verse-${v.book}-${v.chapter}-${v.verse}`, audioUrl);
+      const key = `${v.book.toUpperCase()}_${v.chapter}_${v.verse}`;
+      const fileId = audioMap[key];
+      if (fileId) {
+        const audioUrl = `https://docs.google.com/uc?export=download&id=${fileId}`;
+        playAudio(`verse-${v.book}-${v.chapter}-${v.verse}`, audioUrl);
+      }
     }
   };
 

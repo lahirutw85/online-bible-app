@@ -43,6 +43,9 @@ import booksDataTa from './data/books_ta.json';
 // Import Logo Asset from assets folder
 import logo from './assets/logo.jpg';
 
+// Import Google Drive Audio Map JSON
+import audioMap from './data/audio_map.json';
+
 // Import OOP Services & UI Components from features/bible entrypoint
 import {
   BibleService,
@@ -232,23 +235,8 @@ export default function App() {
   // Check chapter audio existence
   useEffect(() => {
     if (version === 'SINBIBLE' && selectedBook && selectedChapter) {
-      const audioUrl = `${process.env.PUBLIC_URL}/audio/${selectedBook}/${selectedChapter}/${selectedBook.toUpperCase()}_FULL_CH_${selectedChapter}.mp3`;
-      if (typeof fetch === 'function') {
-        const promise = fetch(audioUrl, { method: 'HEAD' });
-        if (promise && typeof promise.then === 'function') {
-          promise
-            .then(res => {
-              setChapterAudioExists(res ? res.ok : false);
-            })
-            .catch(() => {
-              setChapterAudioExists(false);
-            });
-        } else {
-          setChapterAudioExists(false);
-        }
-      } else {
-        setChapterAudioExists(false);
-      }
+      const key = `${selectedBook.toUpperCase()}_FULL_CH_${selectedChapter}`;
+      setChapterAudioExists(!!audioMap[key]);
     } else {
       setChapterAudioExists(false);
     }
@@ -264,14 +252,16 @@ export default function App() {
     lastChapterRef.current = { book: selectedBook, chapter: selectedChapter };
     
     if (wasPlayingChapter && (bookChanged || chapterChanged)) {
-      if (version === 'SINBIBLE' && chapterAudioExists) {
-        const audioUrl = `${process.env.PUBLIC_URL}/audio/${selectedBook}/${selectedChapter}/${selectedBook.toUpperCase()}_FULL_CH_${selectedChapter}.mp3`;
+      const key = `${selectedBook.toUpperCase()}_FULL_CH_${selectedChapter}`;
+      const fileId = audioMap[key];
+      if (version === 'SINBIBLE' && fileId) {
+        const audioUrl = `https://docs.google.com/uc?export=download&id=${fileId}`;
         playAudio(`chapter-${selectedBook}-${selectedChapter}`, audioUrl);
       } else {
         stopAudio();
       }
     }
-  }, [selectedBook, selectedChapter, version, chapterAudioExists, playingAudioId, playAudio, stopAudio]);
+  }, [selectedBook, selectedChapter, version, playingAudioId, playAudio, stopAudio]);
 
   // Save current widths for the current count of reference panels when dragging finishes or count changes
   useEffect(() => {
@@ -1161,8 +1151,12 @@ export default function App() {
                                       if (playingAudioId === chId) {
                                         stopAudio();
                                       } else {
-                                        const audioUrl = `${process.env.PUBLIC_URL}/audio/${selectedBook}/${selectedChapter}/${selectedBook.toUpperCase()}_FULL_CH_${selectedChapter}.mp3`;
-                                        playAudio(chId, audioUrl);
+                                        const key = `${selectedBook.toUpperCase()}_FULL_CH_${selectedChapter}`;
+                                        const fileId = audioMap[key];
+                                        if (fileId) {
+                                          const audioUrl = `https://docs.google.com/uc?export=download&id=${fileId}`;
+                                          playAudio(chId, audioUrl);
+                                        }
                                       }
                                     }}
                                     style={{
@@ -1280,6 +1274,7 @@ export default function App() {
                                 playingAudioId={playingAudioId}
                                 playAudio={playAudio}
                                 stopAudio={stopAudio}
+                                audioMap={audioMap}
                               />
                             );
                           })
