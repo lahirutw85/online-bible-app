@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Card, Popover, Typography, Button, Tooltip } from 'antd';
-import { DeleteOutlined, SoundOutlined, SoundFilled } from '@ant-design/icons';
+import { DeleteOutlined, SoundOutlined, SoundFilled, LoadingOutlined } from '@ant-design/icons';
 import ReferenceLink from './ReferenceLink';
 
 const { Paragraph } = Typography;
@@ -84,6 +84,7 @@ export default function VerseCard({
   getBookName,
   showReferences,
   playingAudioId,
+  loadingAudioId,
   playAudio,
   stopAudio,
   audioMap
@@ -415,16 +416,16 @@ export default function VerseCard({
   };
 
   const isPlaying = playingAudioId === `verse-${v.book}-${v.chapter}-${v.verse}`;
+  const isLoading = loadingAudioId === `verse-${v.book}-${v.chapter}-${v.verse}`;
 
   const handleAudioClick = () => {
-    if (!audioExists || !audioMap) return;
+    if (!audioExists || !audioMap || isLoading) return;
     if (isPlaying) {
       stopAudio();
     } else {
       const key = `${v.book.toUpperCase()}_${v.chapter}_${v.verse}`;
-      const fileId = audioMap[key];
-      if (fileId) {
-        const audioUrl = `https://docs.google.com/uc?export=download&id=${fileId}`;
+      if (audioMap && audioMap[key]) {
+        const audioUrl = `https://github.com/lahirutw85/online-bible-app/releases/download/audio-assets/${key}.mp3`;
         playAudio(`verse-${v.book}-${v.chapter}-${v.verse}`, audioUrl);
       }
     }
@@ -437,17 +438,19 @@ export default function VerseCard({
           type="text" 
           shape="circle" 
           icon={
-            isPlaying ? (
+            isLoading ? (
+              <LoadingOutlined style={{ color: 'var(--accent-color)', fontSize: '18px' }} />
+            ) : isPlaying ? (
               <SoundFilled style={{ color: 'var(--accent-color)', fontSize: '18px' }} />
             ) : (
               <SoundOutlined style={{ color: audioExists ? 'var(--text-primary)' : '#8c8c8c', fontSize: '18px' }} />
             )
           }
           onClick={handleAudioClick}
-          disabled={!audioExists}
+          disabled={!audioExists || isLoading}
           style={{ 
             opacity: audioExists ? 1 : 0.4,
-            cursor: audioExists ? 'pointer' : 'not-allowed',
+            cursor: (audioExists && !isLoading) ? 'pointer' : 'not-allowed',
             border: 'none',
             background: 'transparent'
           }}

@@ -195,36 +195,107 @@ export default function App() {
 
   /* --- N. Audio Playback States & Callbacks --- */
   const [playingAudioId, setPlayingAudioId] = useState(null);
+  const [loadingAudioId, setLoadingAudioId] = useState(null);
   const [audioObject, setAudioObject] = useState(null);
   const [chapterAudioExists, setChapterAudioExists] = useState(false);
 
+  const currentAudioIdRef = React.useRef(null);
+
   const playAudio = useCallback((id, url) => {
+    currentAudioIdRef.current = id;
+
+    // Stop any currently playing audio first
     setAudioObject(prev => {
       if (prev) {
+        prev.onplaying = null;
+        prev.oncanplaythrough = null;
+        prev.ontimeupdate = null;
+        prev.onended = null;
+        prev.onerror = null;
         prev.pause();
+        prev.src = '';
       }
-      const audio = new Audio(url);
-      audio.play().catch(err => {
-        console.error("Audio play failed:", err);
-        setPlayingAudioId(null);
-      });
-      audio.onended = () => {
+      return null;
+    });
+
+    setPlayingAudioId(null);
+    setLoadingAudioId(id);
+
+    // ---- iOS Safari Audio Rules ----
+    // 1. Create Audio() and set .src BEFORE calling play() — all synchronous
+    // 2. Do NOT call audio.load() — on iOS it resets the user-gesture unlock context
+    // 3. Do NOT set crossOrigin — GitHub Releases has no CORS headers, CORS mode blocks the request
+    // 4. Use 'onplaying' not 'oncanplaythrough' — iOS often skips canplaythrough before audio starts
+    const audio = new Audio();
+
+    // onplaying fires when audio actually starts playing — reliable on iOS + Android
+    audio.onplaying = () => {
+      if (currentAudioIdRef.current === id) {
+        setLoadingAudioId(null);
+        setPlayingAudioId(id);
+      }
+    };
+
+    // Fallback: canplaythrough for desktop browsers
+    audio.oncanplaythrough = () => {
+      if (currentAudioIdRef.current === id) {
+        setLoadingAudioId(null);
+        setPlayingAudioId(id);
+      }
+    };
+
+    audio.onended = () => {
+      if (currentAudioIdRef.current === id) {
         setPlayingAudioId(null);
         setAudioObject(null);
-      };
-      return audio;
-    });
-    setPlayingAudioId(id);
+        setLoadingAudioId(null);
+      }
+    };
+
+    audio.onerror = () => {
+      if (currentAudioIdRef.current === id) {
+        message.error("ඕඩියෝ ගොනුව ධාවනය කිරීමට අපොහොසත් විය. (Failed to play audio)");
+        setLoadingAudioId(null);
+        setPlayingAudioId(null);
+      }
+    };
+
+    // Set src synchronously — must happen BEFORE play() on iOS
+    audio.src = url;
+    // Do NOT call audio.load() here — breaks iOS Safari gesture chain
+
+    setAudioObject(audio);
+
+    // Call play() synchronously within the user gesture handler
+    const playPromise = audio.play();
+    if (playPromise !== undefined) {
+      playPromise.catch(err => {
+        console.error("Audio play() rejected:", err.name, err.message);
+        if (currentAudioIdRef.current === id) {
+          setPlayingAudioId(null);
+          setLoadingAudioId(null);
+          // NotAllowedError = autoplay blocked (should not happen on tap)
+          // NotSupportedError = bad src / format
+          if (err.name !== 'AbortError') {
+            message.error("ඕඩියෝ ගොනුව ධාවනය කිරීමට අපොහොසත් විය. (Failed to play audio)");
+          }
+        }
+      });
+    }
   }, []);
 
   const stopAudio = useCallback(() => {
+    currentAudioIdRef.current = null;
     setAudioObject(prev => {
       if (prev) {
         prev.pause();
+        prev.src = '';
+        prev.load();
       }
       return null;
     });
     setPlayingAudioId(null);
+    setLoadingAudioId(null);
   }, []);
 
   // Stop audio on page/version change (except when auto-playing chapter)
@@ -253,9 +324,8 @@ export default function App() {
     
     if (wasPlayingChapter && (bookChanged || chapterChanged)) {
       const key = `${selectedBook.toUpperCase()}_FULL_CH_${selectedChapter}`;
-      const fileId = audioMap[key];
-      if (version === 'SINBIBLE' && fileId) {
-        const audioUrl = `https://docs.google.com/uc?export=download&id=${fileId}`;
+      if (version === 'SINBIBLE' && audioMap[key]) {
+        const audioUrl = `https://github.com/lahirutw85/online-bible-app/releases/download/audio-assets/${key}.mp3`;
         playAudio(`chapter-${selectedBook}-${selectedChapter}`, audioUrl);
       } else {
         stopAudio();
@@ -1144,17 +1214,24 @@ export default function App() {
                                 <Tooltip title={chapterAudioExists ? (playingAudioId === `chapter-${selectedBook}-${selectedChapter}` ? "Pause Chapter Audio" : "Play Chapter Audio") : "Chapter Audio Unavailable"}>
                                   <Button
                                     shape="circle"
-                                    icon={playingAudioId === `chapter-${selectedBook}-${selectedChapter}` ? <SoundFilled style={{ color: '#fadb14', fontSize: '16px' }} /> : <SoundOutlined style={{ fontSize: '16px' }} />}
-                                    disabled={!chapterAudioExists}
+                                    icon={
+                                      loadingAudioId === `chapter-${selectedBook}-${selectedChapter}` ? (
+                                        <LoadingOutlined style={{ color: '#fadb14', fontSize: '16px' }} />
+                                      ) : playingAudioId === `chapter-${selectedBook}-${selectedChapter}` ? (
+                                        <SoundFilled style={{ color: '#fadb14', fontSize: '16px' }} />
+                                      ) : (
+                                        <SoundOutlined style={{ fontSize: '16px' }} />
+                                      )
+                                    }
+                                    disabled={!chapterAudioExists || loadingAudioId === `chapter-${selectedBook}-${selectedChapter}`}
                                     onClick={() => {
                                       const chId = `chapter-${selectedBook}-${selectedChapter}`;
                                       if (playingAudioId === chId) {
                                         stopAudio();
                                       } else {
                                         const key = `${selectedBook.toUpperCase()}_FULL_CH_${selectedChapter}`;
-                                        const fileId = audioMap[key];
-                                        if (fileId) {
-                                          const audioUrl = `https://docs.google.com/uc?export=download&id=${fileId}`;
+                                        if (audioMap[key]) {
+                                          const audioUrl = `https://github.com/lahirutw85/online-bible-app/releases/download/audio-assets/${key}.mp3`;
                                           playAudio(chId, audioUrl);
                                         }
                                       }
@@ -1164,7 +1241,7 @@ export default function App() {
                                       border: 'none',
                                       color: 'white',
                                       opacity: chapterAudioExists ? 1 : 0.4,
-                                      cursor: chapterAudioExists ? 'pointer' : 'not-allowed',
+                                      cursor: (chapterAudioExists && loadingAudioId !== `chapter-${selectedBook}-${selectedChapter}`) ? 'pointer' : 'not-allowed',
                                       width: '36px',
                                       height: '36px',
                                       display: 'flex',
@@ -1272,6 +1349,7 @@ export default function App() {
                                 getBookName={getBookName}
                                 showReferences={showReferences}
                                 playingAudioId={playingAudioId}
+                                loadingAudioId={loadingAudioId}
                                 playAudio={playAudio}
                                 stopAudio={stopAudio}
                                 audioMap={audioMap}
