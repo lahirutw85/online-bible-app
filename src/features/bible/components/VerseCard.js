@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
-import { Card, Popover, Typography, Button } from 'antd';
-import { DeleteOutlined } from '@ant-design/icons';
+import React, { useState, useEffect } from 'react';
+import { Card, Popover, Typography, Button, Tooltip } from 'antd';
+import { DeleteOutlined, SoundOutlined, SoundFilled } from '@ant-design/icons';
 import ReferenceLink from './ReferenceLink';
 
 const { Paragraph } = Typography;
@@ -82,9 +82,37 @@ export default function VerseCard({
   handleFetchVerseText,
   handleJumpToVerse,
   getBookName,
-  showReferences
+  showReferences,
+  playingAudioId,
+  playAudio,
+  stopAudio
 }) {
   const [refsExpanded, setRefsExpanded] = useState(false);
+  const [audioExists, setAudioExists] = useState(false);
+
+  useEffect(() => {
+    if (version === 'SINBIBLE' && v.book && v.chapter && v.verse) {
+      const audioUrl = `${process.env.PUBLIC_URL}/audio/${v.book}/${v.chapter}/${v.book.toUpperCase()}_${v.chapter}_${v.verse}.mp3`;
+      if (typeof fetch === 'function') {
+        const promise = fetch(audioUrl, { method: 'HEAD' });
+        if (promise && typeof promise.then === 'function') {
+          promise
+            .then(res => {
+              setAudioExists(res ? res.ok : false);
+            })
+            .catch(() => {
+              setAudioExists(false);
+            });
+        } else {
+          setAudioExists(false);
+        }
+      } else {
+        setAudioExists(false);
+      }
+    } else {
+      setAudioExists(false);
+    }
+  }, [v.book, v.chapter, v.verse, version]);
 
   const renderReferences = (references, columnVersion) => {
     if (!references || references.length === 0) return null;
@@ -400,6 +428,44 @@ export default function VerseCard({
     );
   };
 
+  const isPlaying = playingAudioId === `verse-${v.book}-${v.chapter}-${v.verse}`;
+
+  const handleAudioClick = () => {
+    if (!audioExists) return;
+    if (isPlaying) {
+      stopAudio();
+    } else {
+      const audioUrl = `${process.env.PUBLIC_URL}/audio/${v.book}/${v.chapter}/${v.book.toUpperCase()}_${v.chapter}_${v.verse}.mp3`;
+      playAudio(`verse-${v.book}-${v.chapter}-${v.verse}`, audioUrl);
+    }
+  };
+
+  const speakerIcon = version === 'SINBIBLE' && (
+    <div style={{ marginLeft: '12px', display: 'flex', alignItems: 'center' }}>
+      <Tooltip title={audioExists ? (isPlaying ? ((t && t('pauseAudio')) || "Pause Audio") : ((t && t('playAudio')) || "Play Audio")) : ((t && t('audioUnavailable')) || "Audio Unavailable")}>
+        <Button 
+          type="text" 
+          shape="circle" 
+          icon={
+            isPlaying ? (
+              <SoundFilled style={{ color: 'var(--accent-color)', fontSize: '18px' }} />
+            ) : (
+              <SoundOutlined style={{ color: audioExists ? 'var(--text-primary)' : '#8c8c8c', fontSize: '18px' }} />
+            )
+          }
+          onClick={handleAudioClick}
+          disabled={!audioExists}
+          style={{ 
+            opacity: audioExists ? 1 : 0.4,
+            cursor: audioExists ? 'pointer' : 'not-allowed',
+            border: 'none',
+            background: 'transparent'
+          }}
+        />
+      </Tooltip>
+    </div>
+  );
+
   return (
     <Card 
       className="verse-card animate-fade-in" 
@@ -407,7 +473,12 @@ export default function VerseCard({
       bodyStyle={isMobile ? { padding: '16px 18px' } : { padding: '20px 24px' }}
       id={`v-${v.verse}`}
     >
-      {renderCardContent()}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', width: '100%' }}>
+        <div style={{ flex: 1 }}>
+          {renderCardContent()}
+        </div>
+        {speakerIcon}
+      </div>
     </Card>
   );
 }

@@ -22,6 +22,7 @@ import {
   Empty,
   message,
   Switch,
+  Tooltip,
   theme as antdTheme 
 } from 'antd';
 import { 
@@ -29,7 +30,9 @@ import {
   SearchOutlined,
   ClearOutlined,
   CompassOutlined,
-  LoadingOutlined
+  LoadingOutlined,
+  SoundOutlined,
+  SoundFilled
 } from '@ant-design/icons';
 
 // Import Static Book Data (Sinhala, English, and Tamil translations)
@@ -186,6 +189,89 @@ export default function App() {
   const [compareBibleData3, setCompareBibleData3] = useState([]);
   const [compareLoading3, setCompareLoading3] = useState(false);
   const [compareFullLoaded3, setCompareFullLoaded3] = useState(false);
+
+  /* --- N. Audio Playback States & Callbacks --- */
+  const [playingAudioId, setPlayingAudioId] = useState(null);
+  const [audioObject, setAudioObject] = useState(null);
+  const [chapterAudioExists, setChapterAudioExists] = useState(false);
+
+  const playAudio = useCallback((id, url) => {
+    setAudioObject(prev => {
+      if (prev) {
+        prev.pause();
+      }
+      const audio = new Audio(url);
+      audio.play().catch(err => {
+        console.error("Audio play failed:", err);
+        setPlayingAudioId(null);
+      });
+      audio.onended = () => {
+        setPlayingAudioId(null);
+        setAudioObject(null);
+      };
+      return audio;
+    });
+    setPlayingAudioId(id);
+  }, []);
+
+  const stopAudio = useCallback(() => {
+    setAudioObject(prev => {
+      if (prev) {
+        prev.pause();
+      }
+      return null;
+    });
+    setPlayingAudioId(null);
+  }, []);
+
+  // Stop audio on page/version change (except when auto-playing chapter)
+  useEffect(() => {
+    stopAudio();
+  }, [version, stopAudio]);
+
+  // Check chapter audio existence
+  useEffect(() => {
+    if (version === 'SINBIBLE' && selectedBook && selectedChapter) {
+      const audioUrl = `${process.env.PUBLIC_URL}/audio/${selectedBook}/${selectedChapter}/${selectedBook.toUpperCase()}_FULL_CH_${selectedChapter}.mp3`;
+      if (typeof fetch === 'function') {
+        const promise = fetch(audioUrl, { method: 'HEAD' });
+        if (promise && typeof promise.then === 'function') {
+          promise
+            .then(res => {
+              setChapterAudioExists(res ? res.ok : false);
+            })
+            .catch(() => {
+              setChapterAudioExists(false);
+            });
+        } else {
+          setChapterAudioExists(false);
+        }
+      } else {
+        setChapterAudioExists(false);
+      }
+    } else {
+      setChapterAudioExists(false);
+    }
+  }, [selectedBook, selectedChapter, version]);
+
+  // Handle auto-playing next chapter if chapter audio was already playing
+  const lastChapterRef = React.useRef({ book: selectedBook, chapter: selectedChapter });
+  useEffect(() => {
+    const wasPlayingChapter = playingAudioId && playingAudioId.startsWith("chapter-");
+    const bookChanged = lastChapterRef.current.book !== selectedBook;
+    const chapterChanged = lastChapterRef.current.chapter !== selectedChapter;
+    
+    lastChapterRef.current = { book: selectedBook, chapter: selectedChapter };
+    
+    if (wasPlayingChapter && (bookChanged || chapterChanged)) {
+      if (version === 'SINBIBLE' && chapterAudioExists) {
+        const audioUrl = `${process.env.PUBLIC_URL}/audio/${selectedBook}/${selectedChapter}/${selectedBook.toUpperCase()}_FULL_CH_${selectedChapter}.mp3`;
+        playAudio(`chapter-${selectedBook}-${selectedChapter}`, audioUrl);
+      } else {
+        stopAudio();
+      }
+    }
+  }, [selectedBook, selectedChapter, version, chapterAudioExists, playingAudioId, playAudio, stopAudio]);
 
   // Save current widths for the current count of reference panels when dragging finishes or count changes
   useEffect(() => {
@@ -1063,7 +1149,37 @@ export default function App() {
                                 {t('chapterLabel')}: {selectedChapter} / {totalChapters}
                               </Text>
                             </div>
-                            <Space size="middle" style={{ justifyContent: isMobile ? 'center' : 'flex-end' }}>
+                            <Space size="middle" style={{ justifyContent: isMobile ? 'center' : 'flex-end', alignItems: 'center' }}>
+                              {version === 'SINBIBLE' && (
+                                <Tooltip title={chapterAudioExists ? (playingAudioId === `chapter-${selectedBook}-${selectedChapter}` ? "Pause Chapter Audio" : "Play Chapter Audio") : "Chapter Audio Unavailable"}>
+                                  <Button
+                                    shape="circle"
+                                    icon={playingAudioId === `chapter-${selectedBook}-${selectedChapter}` ? <SoundFilled style={{ color: '#fadb14', fontSize: '16px' }} /> : <SoundOutlined style={{ fontSize: '16px' }} />}
+                                    disabled={!chapterAudioExists}
+                                    onClick={() => {
+                                      const chId = `chapter-${selectedBook}-${selectedChapter}`;
+                                      if (playingAudioId === chId) {
+                                        stopAudio();
+                                      } else {
+                                        const audioUrl = `${process.env.PUBLIC_URL}/audio/${selectedBook}/${selectedChapter}/${selectedBook.toUpperCase()}_FULL_CH_${selectedChapter}.mp3`;
+                                        playAudio(chId, audioUrl);
+                                      }
+                                    }}
+                                    style={{
+                                      background: 'rgba(255,255,255,0.15)',
+                                      border: 'none',
+                                      color: 'white',
+                                      opacity: chapterAudioExists ? 1 : 0.4,
+                                      cursor: chapterAudioExists ? 'pointer' : 'not-allowed',
+                                      width: '36px',
+                                      height: '36px',
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      justifyContent: 'center'
+                                    }}
+                                  />
+                                </Tooltip>
+                              )}
                               <Button 
                                 disabled={selectedBook === availableBooks[0]?.code && selectedChapter === 1}
                                 onClick={handlePrevChapter} 
@@ -1161,6 +1277,9 @@ export default function App() {
                                 handleJumpToVerse={(b) => handleOpenReference(b, 0)}
                                 getBookName={getBookName}
                                 showReferences={showReferences}
+                                playingAudioId={playingAudioId}
+                                playAudio={playAudio}
+                                stopAudio={stopAudio}
                               />
                             );
                           })
