@@ -190,7 +190,7 @@ export default class BibleService {
         book: v.b,
         chapter: v.c,
         verse: v.v,
-        text: v.t
+        text: v.t ? v.t.replace(/<[^>]*>/g, '').trim() : ''
       }));
     }
   }
@@ -312,7 +312,7 @@ export default class BibleService {
         book: v.b,
         chapter: v.c,
         verse: v.v,
-        text: v.t
+        text: v.t ? v.t.replace(/<[^>]*>/g, '').trim() : ''
       }));
       return localBiblesCache[version];
     }
