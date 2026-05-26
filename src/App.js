@@ -86,7 +86,10 @@ const versionsList = [
   { value: "BSB", label: "Berean Study Bible (English)" },
   { value: "KJV", label: "King James Version (English)" },
   { value: "ASV", label: "American Standard Version (English)" },
-  { value: "BBE", label: "Bible in Basic English (English)" }
+  { value: "BBE", label: "Bible in Basic English (English)" },
+  { value: "NIV", label: "New International Version (English)" },
+  { value: "NKJV", label: "New King James Version (English)" },
+  { value: "AMP", label: "Amplified Bible (English)" }
 ];
 
 // Reusable spinner component using Ant Design's spin algorithm
@@ -175,6 +178,13 @@ export default function App() {
   const [isDragging, setIsDragging] = useState(false);
   const containerRef = React.useRef(null);
   const lastWidthsByCount = React.useRef({});
+
+  /* --- M. 3-Way version comparison states --- */
+  const [threeWayCompare, setThreeWayCompare] = useState(false);
+  const [compareVersion3, setCompareVersion3] = useState("NIV");
+  const [compareBibleData3, setCompareBibleData3] = useState([]);
+  const [compareLoading3, setCompareLoading3] = useState(false);
+  const [compareFullLoaded3, setCompareFullLoaded3] = useState(false);
 
   // Save current widths for the current count of reference panels when dragging finishes or count changes
   useEffect(() => {
@@ -312,6 +322,10 @@ export default function App() {
   }, [compareVersion]);
 
   useEffect(() => {
+    setCompareFullLoaded3(false);
+  }, [compareVersion3]);
+
+  useEffect(() => {
     let active = true;
     setLoading(true);
     bibleService.fetchChapter(selectedBook, selectedChapter, version)
@@ -370,6 +384,23 @@ export default function App() {
       });
   }, [compareVersion, compareMode, selectedBook, selectedChapter, bibleService]);
 
+  /**
+   * Effect: Chapter Loader (Third Compare Version).
+   */
+  useEffect(() => {
+    if (!compareMode || !threeWayCompare) return;
+    setCompareLoading3(true);
+    bibleService.fetchChapter(selectedBook, selectedChapter, compareVersion3)
+      .then(data => {
+        setCompareBibleData3(data);
+        setCompareLoading3(false);
+      })
+      .catch(err => {
+        console.error("API Compare 3 Fetch error:", err);
+        setCompareLoading3(false);
+      });
+  }, [compareVersion3, compareMode, threeWayCompare, selectedBook, selectedChapter, bibleService]);
+
   /* =========================================================================
      SECTION 4: CORE ACTION HANDLERS
      ========================================================================= */
@@ -385,7 +416,7 @@ export default function App() {
   }, []);
 
   const isEnglishVersion = useCallback((ver) => {
-    return bibleService.isApiVersion(ver);
+    return bibleService.isApiVersion(ver) || bibleService.isBollsVersion(ver);
   }, [bibleService]);
 
   /**
@@ -397,7 +428,7 @@ export default function App() {
       return;
     }
 
-    if (!isFullLoaded) {
+    if (bibleData.length < 1000) {
       setSearchLoading(true);
       try {
         const flat = await bibleService.loadFullBibleForSearch(version);
@@ -411,7 +442,7 @@ export default function App() {
       }
     }
 
-    if (compareMode && !compareFullLoaded) {
+    if (compareMode && compareBibleData.length < 1000) {
       setSearchLoading(true);
       try {
         const flat = await bibleService.loadFullBibleForSearch(compareVersion);
@@ -419,6 +450,19 @@ export default function App() {
         setCompareFullLoaded(true);
       } catch (err) {
         console.error("Failed to load compare search database:", err);
+      } finally {
+        setSearchLoading(false);
+      }
+    }
+
+    if (compareMode && threeWayCompare && compareBibleData3.length < 1000) {
+      setSearchLoading(true);
+      try {
+        const flat = await bibleService.loadFullBibleForSearch(compareVersion3);
+        setCompareBibleData3(flat);
+        setCompareFullLoaded3(true);
+      } catch (err) {
+        console.error("Failed to load compare 3 search database:", err);
       } finally {
         setSearchLoading(false);
       }
@@ -614,6 +658,9 @@ export default function App() {
       case 'ASV':
       case 'BBE':
       case 'BSB':
+      case 'NIV':
+      case 'NKJV':
+      case 'AMP':
         return booksDataEn;
       case 'TAMOVR':
         return booksDataTa;
@@ -629,6 +676,9 @@ export default function App() {
       case 'ASV':
       case 'BBE':
       case 'BSB':
+      case 'NIV':
+      case 'NKJV':
+      case 'AMP':
         bookSet = booksDataEn;
         break;
       default:
@@ -644,6 +694,9 @@ export default function App() {
       case 'ASV':
       case 'BBE':
       case 'BSB':
+      case 'NIV':
+      case 'NKJV':
+      case 'AMP':
         return 'en';
       case 'TAMOVR':
         return 'ta';
@@ -827,6 +880,10 @@ export default function App() {
     setCompareMode,
     compareVersion,
     setCompareVersion,
+    threeWayCompare,
+    setThreeWayCompare,
+    compareVersion3,
+    setCompareVersion3,
     selectedBook,
     setSelectedBook,
     setSelectedChapter,
@@ -868,6 +925,10 @@ export default function App() {
           setCompareMode={setCompareMode}
           compareVersion={compareVersion}
           setCompareVersion={setCompareVersion}
+          threeWayCompare={threeWayCompare}
+          setThreeWayCompare={setThreeWayCompare}
+          compareVersion3={compareVersion3}
+          setCompareVersion3={setCompareVersion3}
           selectedBook={selectedBook}
           searchTerm={searchTerm}
           setSearchTerm={setSearchTerm}
@@ -937,13 +998,13 @@ export default function App() {
               transition: isDragging ? 'none' : 'width 0.3s ease',
               boxSizing: 'border-box'
             }}>
-              {loading || searchLoading || (compareMode && compareLoading) ? (
+              {loading || searchLoading || (compareMode && compareLoading) || (compareMode && threeWayCompare && compareLoading3) ? (
                 <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', height: '60vh', gap: '16px' }}>
                   <Spin indicator={antIcon} />
                   <Text type="secondary" style={{ fontSize: '15px' }}>{t('loadingText')}</Text>
                 </div>
               ) : (
-                <div className="animate-fade-in" style={{ maxWidth: '960px', margin: '0 auto' }}>
+                <div className="animate-fade-in" style={{ maxWidth: compareMode ? '1440px' : '960px', margin: '0 auto' }}>
                   
                   {/* 1. BOOKMARKS VIEW */}
                   {selectedBook === "bookmarks" ? (
@@ -1078,6 +1139,9 @@ export default function App() {
                                 compareVersion={compareVersion}
                                 compareMode={compareMode}
                                 compareBibleData={compareBibleData}
+                                threeWayCompare={threeWayCompare}
+                                compareVersion3={compareVersion3}
+                                compareBibleData3={compareBibleData3}
                                 isMobile={isMobile}
                                 theme={theme}
                                 handleAddBookmark={handleAddBookmark}
@@ -1147,6 +1211,18 @@ export default function App() {
                           </Button>
                         </div>
                       )}
+
+                      {/* Copyright Footer */}
+                      <div style={{ 
+                        textAlign: 'center', 
+                        padding: '24px 0 8px 0', 
+                        borderTop: '1px solid var(--border-color)', 
+                        marginTop: '32px',
+                        color: 'var(--text-secondary)',
+                        fontSize: '13px'
+                      }}>
+                        All rights reserved to Bibalaya.com - 2026
+                      </div>
                     </div>
                   )}
                 </div>

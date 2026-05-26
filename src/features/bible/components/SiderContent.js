@@ -49,6 +49,10 @@ export default function SiderContent({
   setCompareMode,
   compareVersion,
   setCompareVersion,
+  threeWayCompare,
+  setThreeWayCompare,
+  compareVersion3,
+  setCompareVersion3,
   selectedBook,
   setSelectedBook,
   setSelectedChapter,
@@ -75,15 +79,27 @@ export default function SiderContent({
       {isMobile && (
         <div style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: '12px', borderBottom: '1px solid var(--border-color)', background: theme === 'dark' ? '#111827' : '#f7fafc' }}>
           <div>
-            <Button 
-              type={compareMode ? "primary" : "default"}
-              size="small"
-              icon={<TranslationOutlined />}
-              onClick={() => setCompareMode(!compareMode)}
-              style={{ width: '100%', marginBottom: '12px', borderRadius: '8px' }}
-            >
-              {compareMode ? t('compareModeActive') : t('compareModeInactive')}
-            </Button>
+            <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
+              <Button 
+                type={compareMode ? "primary" : "default"}
+                size="small"
+                icon={<TranslationOutlined />}
+                onClick={() => setCompareMode(!compareMode)}
+                style={{ flex: 1, borderRadius: '8px' }}
+              >
+                {compareMode ? "Disable Compare" : "Compare"}
+              </Button>
+              {compareMode && (
+                <Button
+                  type={threeWayCompare ? "primary" : "default"}
+                  size="small"
+                  onClick={() => setThreeWayCompare(!threeWayCompare)}
+                  style={{ flex: 1, borderRadius: '8px' }}
+                >
+                  {threeWayCompare ? "2-Way" : "3-Way"}
+                </Button>
+              )}
+            </div>
             <Text type="secondary" style={{ fontSize: '11px', display: 'block', marginBottom: '4px' }}>{t('versionLabel')}</Text>
             <Select 
               value={version} 
@@ -102,11 +118,31 @@ export default function SiderContent({
 
             {compareMode && (
               <div style={{ marginTop: '8px' }}>
-                <Text type="secondary" style={{ fontSize: '11px', display: 'block', marginBottom: '4px' }}>{t('compareVersionLabel')}</Text>
+                <Text type="secondary" style={{ fontSize: '11px', display: 'block', marginBottom: '4px' }}>{t('compareVersionLabel')} 1</Text>
                 <Select 
                   value={compareVersion} 
                   onChange={(val) => {
                     setCompareVersion(val);
+                    setCollapsed(true);
+                  }} 
+                  style={{ width: '100%' }}
+                  dropdownStyle={{ borderRadius: '8px' }}
+                  disabled={selectedBook === "bookmarks"}
+                >
+                  {versionsList.map(v => (
+                    <Select.Option key={v.value} value={v.value}>{v.label}</Select.Option>
+                  ))}
+                </Select>
+              </div>
+            )}
+
+            {compareMode && threeWayCompare && (
+              <div style={{ marginTop: '8px' }}>
+                <Text type="secondary" style={{ fontSize: '11px', display: 'block', marginBottom: '4px' }}>{t('compareVersionLabel')} 2</Text>
+                <Select 
+                  value={compareVersion3} 
+                  onChange={(val) => {
+                    setCompareVersion3(val);
                     setCollapsed(true);
                   }} 
                   style={{ width: '100%' }}

@@ -6,6 +6,21 @@
  * 2. For local translations (Sinhala ROV/2018, Tamil TAMOVR), it performs dynamic imports of raw JSON files,
  *    enabling the React app bundle to remain lightweight since large 12MB databases are split into lazy-loaded files.
  */
+// Book order list for mapping standard 3-letter codes to Bolls.life 1-based indices
+const bollsBookOrder = [
+  "Gen", "Exod", "Lev", "Num", "Deut", "Josh", "Judg", "Ruth",
+  "1Sam", "2Sam", "1Kgs", "2Kgs", "1Chr", "2Chr", "Ezra", "Neh", "Esth", "Job",
+  "Ps", "Prov", "Eccl", "Song", "Isa", "Jer", "Lam", "Ezek", "Dan", "Hos",
+  "Joel", "Amos", "Obad", "Jonah", "Mic", "Nah", "Hab", "Zeph", "Hag", "Zech",
+  "Mal", "Matt", "Mark", "Luke", "John", "Acts", "Rom", "1Cor", "2Cor", "Gal",
+  "Eph", "Phil", "Col", "1Thess", "2Thess", "1Tim", "2Tim", "Titus", "Phlm",
+  "Heb", "Jas", "1Pet", "2Pet", "1John", "2John", "3John", "Jude", "Rev"
+];
+const getBollsBookIndex = (bookCode) => {
+  const idx = bollsBookOrder.indexOf(bookCode);
+  return idx !== -1 ? idx + 1 : 1;
+};
+
 // Module-level caches shared across all BibleService instances to prevent redundant operations and memory leaks
 const localBiblesCache = {};
 const apiChaptersCache = {};
@@ -65,6 +80,15 @@ export default class BibleService {
   }
 
   /**
+   * Helper verifying if a version is fetched via Bolls.life HTTP API.
+   * @param {string} version
+   * @returns {boolean}
+   */
+  isBollsVersion(version) {
+    return ["NIV", "NKJV", "AMP"].includes(version);
+  }
+
+  /**
    * Loads a chapter's verses.
    * - For API versions: queries `bible.helloao.org` for a single chapter's JSON, tokenizes 
    *   text strings, and converts content segments into a flat list of verse objects.
@@ -77,6 +101,29 @@ export default class BibleService {
    */
   async fetchChapter(book, chapter, version) {
     const apiVersions = { "KJV": "eng_kjv", "ASV": "eng_asv", "BBE": "eng_bbe", "BSB": "BSB" };
+
+    if (this.isBollsVersion(version)) {
+      const cacheKey = `${version}_${book}_${chapter}`;
+      if (apiChaptersCache[cacheKey]) {
+        return apiChaptersCache[cacheKey];
+      }
+
+      const bookIndex = getBollsBookIndex(book);
+      const url = `https://bolls.life/get-chapter/${version}/${bookIndex}/${chapter}/`;
+
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`Failed to fetch chapter ${book} ${chapter} from Bolls.life`);
+      const data = await res.json();
+      
+      const flat = data.map(item => ({
+        book: book,
+        chapter: chapter,
+        verse: item.verse,
+        text: item.text.replace(/<br\s*\/?>/gi, ' ').replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim()
+      }));
+      apiChaptersCache[cacheKey] = flat;
+      return flat;
+    }
 
     if (this.isApiVersion(version)) {
       const cacheKey = `${version}_${book}_${chapter}`;
@@ -181,6 +228,22 @@ export default class BibleService {
     }
     if (this.searchCache[version]) {
       return this.searchCache[version];
+    }
+
+    if (this.isBollsVersion(version)) {
+      const res = await fetch(`https://bolls.life/static/translations/${version}.json`);
+      if (!res.ok) throw new Error(`Failed to load full Bible database for Bolls version ${version}`);
+      const data = await res.json();
+
+      const flat = data.map(item => ({
+        book: bollsBookOrder[item.book - 1] || item.book,
+        chapter: item.chapter,
+        verse: item.verse,
+        text: item.text.replace(/<br\s*\/?>/gi, ' ').replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim()
+      }));
+
+      this.searchCache[version] = flat;
+      return flat;
     }
 
     if (this.isApiVersion(version)) {

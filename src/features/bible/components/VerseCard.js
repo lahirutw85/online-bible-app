@@ -67,6 +67,9 @@ export default function VerseCard({
   compareVersion,
   compareMode,
   compareBibleData,
+  threeWayCompare,
+  compareVersion3,
+  compareBibleData3,
   isMobile,
   theme,
   handleAddBookmark,
@@ -174,12 +177,17 @@ export default function VerseCard({
     display: 'inline'
   } : {};
 
-  // Resolve corresponding verse text from the compared translation
+  // Resolve corresponding verse texts from the compared translations
   let compareVerse = null;
+  let compareVerse3 = null;
   if (compareMode) {
     compareVerse = compareBibleData.find(cv => cv.book === v.book && cv.chapter === v.chapter && cv.verse === v.verse);
+    if (threeWayCompare) {
+      compareVerse3 = compareBibleData3.find(cv => cv.book === v.book && cv.chapter === v.chapter && cv.verse === v.verse);
+    }
   }
   const compareText = compareVerse ? compareVerse.text : "...";
+  const compareText3 = compareVerse3 ? compareVerse3.text : "...";
 
   // Color picker selection layout rendered inside Ant Design Popover
   const popoverContent = (
@@ -253,8 +261,8 @@ export default function VerseCard({
               </span>
             </Paragraph>
           </div>
-          {/* Right Column (Compared Translation) */}
-          <div style={{ flex: 1 }}>
+          {/* Middle Column (Compared Translation 1) */}
+          <div style={{ flex: 1, borderRight: threeWayCompare ? '1px solid var(--border-color)' : 'none', paddingRight: threeWayCompare ? '16px' : '0px' }}>
             <Paragraph style={{ margin: 0, display: 'block', lineHeight: 'var(--verse-line-height, 1.8)' }}>
               <span className="verse-number" style={{ background: 'rgba(0,0,0,0.05)', color: 'var(--text-secondary)', display: 'inline-block', marginRight: '8px' }}>
                 {searchActive ? `${bookName} ${v.chapter}:${v.verse}` : `${v.verse}`}
@@ -269,6 +277,24 @@ export default function VerseCard({
               {showReferences && renderReferences(v.references, compareVersion)}
             </Paragraph>
           </div>
+          {/* Right Column (Compared Translation 2) */}
+          {threeWayCompare && (
+            <div style={{ flex: 1 }}>
+              <Paragraph style={{ margin: 0, display: 'block', lineHeight: 'var(--verse-line-height, 1.8)' }}>
+                <span className="verse-number" style={{ background: 'rgba(0,0,0,0.05)', color: 'var(--text-secondary)', display: 'inline-block', marginRight: '8px' }}>
+                  {searchActive ? `${bookName} ${v.chapter}:${v.verse}` : `${v.verse}`}
+                </span>
+                <span 
+                  className={`verse-text ${isEnglishVersion(compareVersion3) ? 'english-verse' : ''}`}
+                  onDoubleClick={isEnglishVersion(compareVersion3) ? (e) => handleVerseDoubleClick(e, v, compareVersion3) : undefined}
+                  style={isEnglishVersion(compareVersion3) ? { cursor: 'pointer', display: 'inline' } : { display: 'inline' }}
+                >
+                  {searchActive ? renderHighlightedText(compareText3, searchTerm) : compareText3}
+                </span>
+                {showReferences && renderReferences(v.references, compareVersion3)}
+              </Paragraph>
+            </div>
+          )}
         </div>
       );
     }
@@ -297,7 +323,7 @@ export default function VerseCard({
               </span>
             </Paragraph>
           </div>
-          {/* Row 2: Compared Translation */}
+          {/* Row 2: Compared Translation 1 */}
           <div style={{ 
             paddingTop: '8px', 
             borderTop: '1px dashed var(--border-color)',
@@ -317,6 +343,28 @@ export default function VerseCard({
               {showReferences && renderReferences(v.references, compareVersion)}
             </Paragraph>
           </div>
+          {/* Row 3: Compared Translation 2 */}
+          {threeWayCompare && (
+            <div style={{ 
+              paddingTop: '8px', 
+              borderTop: '1px dashed var(--border-color)',
+              opacity: 0.85
+            }}>
+              <Paragraph style={{ margin: 0, display: 'block', lineHeight: 'var(--verse-line-height, 1.8)' }}>
+                <span className="verse-number" style={{ background: 'rgba(24, 144, 255, 0.08)', color: 'var(--accent-color)', fontSize: '10px', padding: '1px 5px', display: 'inline-block', marginRight: '8px' }}>
+                  {compareVersion3}
+                </span>
+                <span 
+                  className={`verse-text ${isEnglishVersion(compareVersion3) ? 'english-verse' : ''}`}
+                  onDoubleClick={isEnglishVersion(compareVersion3) ? (e) => handleVerseDoubleClick(e, v, compareVersion3) : undefined}
+                  style={isEnglishVersion(compareVersion3) ? { fontStyle: 'italic', opacity: 0.9, cursor: 'pointer', display: 'inline' } : { fontStyle: 'italic', opacity: 0.9, display: 'inline' }}
+                >
+                  {searchActive ? renderHighlightedText(compareText3, searchTerm) : compareText3}
+                </span>
+                {showReferences && renderReferences(v.references, compareVersion3)}
+              </Paragraph>
+            </div>
+          )}
         </div>
       );
     }

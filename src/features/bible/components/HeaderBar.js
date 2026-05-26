@@ -60,6 +60,10 @@ export default function HeaderBar({
   setCompareMode,
   compareVersion,
   setCompareVersion,
+  threeWayCompare,
+  setThreeWayCompare,
+  compareVersion3,
+  setCompareVersion3,
   selectedBook,
   searchTerm,
   setSearchTerm,
@@ -88,10 +92,16 @@ export default function HeaderBar({
           onClick={() => setCollapsed(!collapsed)} 
           style={{ fontSize: '16px', width: 40, height: 40 }}
         />
-        <img src={logo} alt="Bibalaya Logo" style={{ height: isMobile ? '32px' : '36px', width: isMobile ? '32px' : '36px', borderRadius: '8px', objectFit: 'cover' }} />
-        <Title level={isMobile ? 5 : 4} style={{ margin: 0, fontWeight: 700, letterSpacing: '-0.02em', color: theme === 'dark' ? '#f8fafc' : '#2c3e50', display: 'flex', alignItems: 'center', gap: '6px' }}>
-          Bibalaya.com {!isMobile && <span style={{ fontSize: '12px', opacity: 0.5, fontWeight: 400, marginTop: '4px', color: theme === 'dark' ? '#94a3b8' : '#718096' }}>{t('subtitle')}</span>}
-        </Title>
+        <div 
+          onClick={() => window.location.reload()}
+          style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '8px' : '12px', cursor: 'pointer' }}
+          className="brand-logo-container"
+        >
+          <img src={logo} alt="Bibalaya Logo" style={{ height: isMobile ? '32px' : '36px', width: isMobile ? '32px' : '36px', borderRadius: '8px', objectFit: 'cover' }} />
+          <Title level={isMobile ? 5 : 4} style={{ margin: 0, fontWeight: 700, letterSpacing: '-0.02em', color: theme === 'dark' ? '#f8fafc' : '#2c3e50', display: 'flex', alignItems: 'center', gap: '6px' }}>
+            Bibalaya.com {!isMobile && <span style={{ fontSize: '12px', opacity: 0.5, fontWeight: 400, marginTop: '4px', color: theme === 'dark' ? '#94a3b8' : '#718096' }}>{t('subtitle')}</span>}
+          </Title>
+        </div>
       </div>
 
       {/* Control selectors block */}
@@ -105,13 +115,22 @@ export default function HeaderBar({
               icon={<TranslationOutlined />}
               onClick={() => setCompareMode(!compareMode)}
             >
-              {compareMode ? t('compareModeActive') : t('compareModeInactive')}
+              {compareMode ? "Disable Compare" : "Compare"}
             </Button>
+
+            {compareMode && (
+              <Button
+                type={threeWayCompare ? "primary" : "default"}
+                onClick={() => setThreeWayCompare(!threeWayCompare)}
+              >
+                {threeWayCompare ? "2-Way Compare" : "3-Way Compare"}
+              </Button>
+            )}
             
             <Select 
               value={version} 
               onChange={(val) => setVersion(val)} 
-              style={{ width: compareMode ? 200 : 280 }}
+              style={{ width: compareMode ? (threeWayCompare ? 160 : 200) : 280 }}
               dropdownStyle={{ borderRadius: '8px' }}
               disabled={selectedBook === "bookmarks"}
             >
@@ -124,7 +143,21 @@ export default function HeaderBar({
               <Select 
                 value={compareVersion} 
                 onChange={(val) => setCompareVersion(val)} 
-                style={{ width: 200 }}
+                style={{ width: threeWayCompare ? 160 : 200 }}
+                dropdownStyle={{ borderRadius: '8px' }}
+                disabled={selectedBook === "bookmarks"}
+              >
+                {versionsList.map(v => (
+                  <Select.Option key={v.value} value={v.value}>{v.label}</Select.Option>
+                ))}
+              </Select>
+            )}
+
+            {compareMode && threeWayCompare && (
+              <Select 
+                value={compareVersion3} 
+                onChange={(val) => setCompareVersion3(val)} 
+                style={{ width: 160 }}
                 dropdownStyle={{ borderRadius: '8px' }}
                 disabled={selectedBook === "bookmarks"}
               >
