@@ -179,6 +179,8 @@ export default class BibleService {
         module = await import('../../../data/sinnrv2018.json');
       } else if (version === 'TAMOVR') {
         module = await import('../../../data/ta_movr.json');
+      } else if (version === 'SINBIBLE') {
+        module = await import('../../../data/sin_simple.json');
       } else {
         module = await import('../../../data/sirov.json');
       }
@@ -303,6 +305,8 @@ export default class BibleService {
         module = await import('../../../data/sinnrv2018.json');
       } else if (version === 'TAMOVR') {
         module = await import('../../../data/ta_movr.json');
+      } else if (version === 'SINBIBLE') {
+        module = await import('../../../data/sin_simple.json');
       } else {
         module = await import('../../../data/sirov.json');
       }

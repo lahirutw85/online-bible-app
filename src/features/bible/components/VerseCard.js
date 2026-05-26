@@ -186,8 +186,15 @@ export default function VerseCard({
       compareVerse3 = compareBibleData3.find(cv => cv.book === v.book && cv.chapter === v.chapter && cv.verse === v.verse);
     }
   }
-  const compareText = compareVerse ? compareVerse.text : "...";
-  const compareText3 = compareVerse3 ? compareVerse3.text : "...";
+  
+  const cleanText = (str) => {
+    if (!str) return '';
+    return str.replace(/<[^>]*>/g, '').trim();
+  };
+
+  const mainVerseText = cleanText(v.text);
+  const compareText = compareVerse ? cleanText(compareVerse.text) : "...";
+  const compareText3 = compareVerse3 ? cleanText(compareVerse3.text) : "...";
 
   // Color picker selection layout rendered inside Ant Design Popover
   const popoverContent = (
@@ -255,7 +262,7 @@ export default function VerseCard({
                   onDoubleClick={isEnglishVersion(version) ? (e) => handleVerseDoubleClick(e, v, version) : undefined}
                   style={isEnglishVersion(version) ? { cursor: 'pointer', display: 'inline' } : { display: 'inline' }}
                 >
-                  {searchActive ? renderHighlightedText(v.text, searchTerm) : v.text}
+                  {searchActive ? renderHighlightedText(mainVerseText, searchTerm) : mainVerseText}
                 </span>
                 {showReferences && renderReferences(v.references, version)}
               </span>
@@ -317,7 +324,7 @@ export default function VerseCard({
                   onDoubleClick={isEnglishVersion(version) ? (e) => handleVerseDoubleClick(e, v, version) : undefined}
                   style={isEnglishVersion(version) ? { cursor: 'pointer', display: 'inline' } : { display: 'inline' }}
                 >
-                  {searchActive ? renderHighlightedText(v.text, searchTerm) : v.text}
+                  {searchActive ? renderHighlightedText(mainVerseText, searchTerm) : mainVerseText}
                 </span>
                 {showReferences && renderReferences(v.references, version)}
               </span>
@@ -385,7 +392,7 @@ export default function VerseCard({
             onDoubleClick={isEnglishVersion(version) ? (e) => handleVerseDoubleClick(e, v, version) : undefined} 
             style={isEnglishVersion(version) ? { cursor: 'pointer', display: 'inline' } : { display: 'inline' }}
           >
-            {searchActive ? renderHighlightedText(v.text, searchTerm) : v.text}
+            {searchActive ? renderHighlightedText(mainVerseText, searchTerm) : mainVerseText}
           </span>
           {showReferences && renderReferences(v.references, version)}
         </span>

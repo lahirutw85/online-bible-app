@@ -82,6 +82,7 @@ const { Title, Text, Paragraph } = Typography;
 const versionsList = [
   { value: "ROV", label: "පැරණි සංශෝධිත (Sinhala)" },
   { value: "2018", label: "2018 නව සංශෝධිත (Sinhala)" },
+  { value: "SINBIBLE", label: "සිංහල බයිබලය (Sinhala)" },
   { value: "TAMOVR", label: "பழைய மொழிபெயர்ப்பு (Tamil)" },
   { value: "BSB", label: "Berean Study Bible (English)" },
   { value: "KJV", label: "King James Version (English)" },
