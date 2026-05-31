@@ -65,6 +65,7 @@ export default function SiderContent({
   setSearchScope,
   bookmarks,
   availableBooks,
+  bookChaptersMap,
   t,
   versionsList
 }) {
@@ -225,11 +226,26 @@ export default function SiderContent({
             {
               type: "divider"
             },
-            ...availableBooks.map(b => ({
-              key: b.code,
-              icon: <BookOutlined />,
-              label: b.name
-            }))
+            ...availableBooks.flatMap(b => {
+              const chCount = bookChaptersMap[b.code] || 0;
+              const bookItem = {
+                key: b.code,
+                icon: <BookOutlined />,
+                label: `${b.name} (${chCount})`
+              };
+              if (b.code === "Mal") {
+                return [
+                  bookItem,
+                  {
+                    key: "ot-nt-divider",
+                    disabled: true,
+                    label: <div style={{ color: 'var(--text-secondary)', opacity: 0.5, textAlign: 'center', fontWeight: 'bold', userSelect: 'none' }}>-------------------------</div>,
+                    style: { height: '20px', pointerEvents: 'none', background: 'transparent' }
+                  }
+                ];
+              }
+              return [bookItem];
+            })
           ]}
         />
       </div>

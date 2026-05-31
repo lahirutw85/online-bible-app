@@ -135,7 +135,7 @@ export default function HeaderBar({
               disabled={selectedBook === "bookmarks"}
             >
               {versionsList.map(v => (
-                <Select.Option key={v.value} value={v.value}>{v.label}</Select.Option>
+                <Select.Option key={v.value} value={v.value} disabled={v.disabled}>{v.label}</Select.Option>
               ))}
             </Select>
 
@@ -148,7 +148,7 @@ export default function HeaderBar({
                 disabled={selectedBook === "bookmarks"}
               >
                 {versionsList.map(v => (
-                  <Select.Option key={v.value} value={v.value}>{v.label}</Select.Option>
+                  <Select.Option key={v.value} value={v.value} disabled={v.disabled}>{v.label}</Select.Option>
                 ))}
               </Select>
             )}
@@ -162,7 +162,7 @@ export default function HeaderBar({
                 disabled={selectedBook === "bookmarks"}
               >
                 {versionsList.map(v => (
-                  <Select.Option key={v.value} value={v.value}>{v.label}</Select.Option>
+                  <Select.Option key={v.value} value={v.value} disabled={v.disabled}>{v.label}</Select.Option>
                 ))}
               </Select>
             )}
@@ -200,7 +200,7 @@ export default function HeaderBar({
         </Tooltip>
 
         {/* Settings sync drawer trigger */}
-        <Tooltip title={getLanguage() === 'si' ? "සිටුවම්" : getLanguage() === 'ta' ? "அமைப்புகள்" : "Settings"}>
+        <Tooltip title="Settings">
           <Button 
             type="text" 
             icon={<SettingOutlined style={{ fontSize: '18px' }} />}

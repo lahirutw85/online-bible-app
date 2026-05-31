@@ -45,6 +45,7 @@ import logo from './assets/logo.jpg';
 
 // Import Google Drive Audio Map JSON
 import audioMap from './data/audio_map.json';
+import verseCountsData from './data/verse_counts.json';
 
 // Import OOP Services & UI Components from features/bible entrypoint
 import {
@@ -57,7 +58,8 @@ import {
   LexiconTooltip,
   VerseCard,
   BookmarksView,
-  ReferencePanel
+  ReferencePanel,
+  CommentaryDrawer
 } from './features/bible';
 
 /* =========================================================================
@@ -86,17 +88,27 @@ const { Title, Text, Paragraph } = Typography;
  * List of supported translations.
  */
 const versionsList = [
-  { value: "ROV", label: "පැරණි සංශෝධිත (Sinhala)" },
-  { value: "2018", label: "2018 නව සංශෝධිත (Sinhala)" },
-  { value: "SINBIBLE", label: "සිංහල බයිබලය (Sinhala)" },
+  // --- SINBIBLE at the top with a speaker icon ---
+  { value: "SINBIBLE", label: "සිංහල බයිබලය (Sinhala) 🔊" },
+  { value: "DIVIDER_1", label: "──────────────────", disabled: true },
+  
+  // --- Tamil ---
   { value: "TAMOVR", label: "பழைய மொழிபெயர்ப்பு (Tamil)" },
+  { value: "DIVIDER_2", label: "──────────────────", disabled: true },
+  
+  // --- English ---
   { value: "BSB", label: "Berean Study Bible (English)" },
   { value: "KJV", label: "King James Version (English)" },
   { value: "ASV", label: "American Standard Version (English)" },
   { value: "BBE", label: "Bible in Basic English (English)" },
   { value: "NIV", label: "New International Version (English)" },
   { value: "NKJV", label: "New King James Version (English)" },
-  { value: "AMP", label: "Amplified Bible (English)" }
+  { value: "AMP", label: "Amplified Bible (English)" },
+  { value: "DIVIDER_3", label: "──────────────────", disabled: true },
+
+  // --- Other Sinhala at the bottom ---
+  { value: "ROV", label: "පැරණි සංශෝධිත (Sinhala)" },
+  { value: "2018", label: "2018 නව සංශෝධිත (Sinhala)" }
 ];
 
 // Reusable spinner component using Ant Design's spin algorithm
@@ -140,10 +152,6 @@ export default function App() {
   const [compareBibleData, setCompareBibleData] = useState([]);
   const [compareLoading, setCompareLoading] = useState(false);
 
-  /* --- G. Performance / Full-Load API States --- */
-  const [isFullLoaded, setIsFullLoaded] = useState(false);
-  const [compareFullLoaded, setCompareFullLoaded] = useState(false);
-
   /* --- H. Font Customization States --- */
   const [fontSize, setFontSize] = useState(() => parseInt(localStorage.getItem("bible-font-size")) || 16);
 
@@ -175,9 +183,18 @@ export default function App() {
     return saved !== "false";
   });
 
+  const [stickyChapterCard, setStickyChapterCard] = useState(() => {
+    const saved = localStorage.getItem("bible-sticky-chapter-card");
+    return saved === "true";
+  });
+
   useEffect(() => {
     localStorage.setItem("bible-show-references", showReferences);
   }, [showReferences]);
+
+  useEffect(() => {
+    localStorage.setItem("bible-sticky-chapter-card", stickyChapterCard);
+  }, [stickyChapterCard]);
 
   /* --- L. Split screen reference panels states --- */
   const [referencePanels, setReferencePanels] = useState([]);
@@ -191,13 +208,15 @@ export default function App() {
   const [compareVersion3, setCompareVersion3] = useState("NIV");
   const [compareBibleData3, setCompareBibleData3] = useState([]);
   const [compareLoading3, setCompareLoading3] = useState(false);
-  const [compareFullLoaded3, setCompareFullLoaded3] = useState(false);
-
   /* --- N. Audio Playback States & Callbacks --- */
   const [playingAudioId, setPlayingAudioId] = useState(null);
   const [loadingAudioId, setLoadingAudioId] = useState(null);
   const [audioObject, setAudioObject] = useState(null);
   const [chapterAudioExists, setChapterAudioExists] = useState(false);
+
+  /* --- O. Commentary Drawer States --- */
+  const [commentaryVisible, setCommentaryVisible] = useState(false);
+  const [commentaryCoords, setCommentaryCoords] = useState(null);
 
   const currentAudioIdRef = React.useRef(null);
 
@@ -207,12 +226,14 @@ export default function App() {
     // Stop any currently playing audio first
     setAudioObject(prev => {
       if (prev) {
+        prev.onplay = null;
         prev.onplaying = null;
         prev.oncanplaythrough = null;
-        prev.ontimeupdate = null;
         prev.onended = null;
         prev.onerror = null;
-        prev.pause();
+        try {
+          prev.pause();
+        } catch (e) {}
         prev.src = '';
       }
       return null;
@@ -221,64 +242,50 @@ export default function App() {
     setPlayingAudioId(null);
     setLoadingAudioId(id);
 
-    // ---- iOS Safari Audio Rules ----
-    // 1. Create Audio() and set .src BEFORE calling play() — all synchronous
-    // 2. Do NOT call audio.load() — on iOS it resets the user-gesture unlock context
-    // 3. Do NOT set crossOrigin — GitHub Releases has no CORS headers, CORS mode blocks the request
-    // 4. Use 'onplaying' not 'oncanplaythrough' — iOS often skips canplaythrough before audio starts
+    // Create Audio object synchronously inside the click handler to unlock the media session on mobile
     const audio = new Audio();
+    audio.preload = 'auto';
+    setAudioObject(audio);
 
-    // onplaying fires when audio actually starts playing — reliable on iOS + Android
-    audio.onplaying = () => {
+    const handleStartPlaying = () => {
       if (currentAudioIdRef.current === id) {
         setLoadingAudioId(null);
         setPlayingAudioId(id);
       }
     };
 
-    // Fallback: canplaythrough for desktop browsers
-    audio.oncanplaythrough = () => {
-      if (currentAudioIdRef.current === id) {
-        setLoadingAudioId(null);
-        setPlayingAudioId(id);
-      }
-    };
+    audio.onplay = handleStartPlaying;
+    audio.onplaying = handleStartPlaying;
+    audio.oncanplaythrough = handleStartPlaying;
 
     audio.onended = () => {
       if (currentAudioIdRef.current === id) {
         setPlayingAudioId(null);
-        setAudioObject(null);
         setLoadingAudioId(null);
+        setAudioObject(null);
       }
     };
 
-    audio.onerror = () => {
+    audio.onerror = (e) => {
+      console.error("Audio playback error:", e);
       if (currentAudioIdRef.current === id) {
         message.error("ඕඩියෝ ගොනුව ධාවනය කිරීමට අපොහොසත් විය. (Failed to play audio)");
         setLoadingAudioId(null);
         setPlayingAudioId(null);
+        setAudioObject(null);
       }
     };
 
-    // Set src synchronously — must happen BEFORE play() on iOS
+    // Use direct URL for instant streaming without slow proxies or blob downloads
     audio.src = url;
-    // Do NOT call audio.load() here — breaks iOS Safari gesture chain
 
-    setAudioObject(audio);
-
-    // Call play() synchronously within the user gesture handler
     const playPromise = audio.play();
     if (playPromise !== undefined) {
       playPromise.catch(err => {
-        console.error("Audio play() rejected:", err.name, err.message);
+        console.warn("Audio.play() promise rejected:", err.name, err.message);
         if (currentAudioIdRef.current === id) {
           setPlayingAudioId(null);
           setLoadingAudioId(null);
-          // NotAllowedError = autoplay blocked (should not happen on tap)
-          // NotSupportedError = bad src / format
-          if (err.name !== 'AbortError') {
-            message.error("ඕඩියෝ ගොනුව ධාවනය කිරීමට අපොහොසත් විය. (Failed to play audio)");
-          }
         }
       });
     }
@@ -457,20 +464,7 @@ export default function App() {
 
 
 
-  /**
-   * Effect: Resets search engine flag if the user switches version.
-   */
-  useEffect(() => {
-    setIsFullLoaded(false);
-  }, [version]);
 
-  useEffect(() => {
-    setCompareFullLoaded(false);
-  }, [compareVersion]);
-
-  useEffect(() => {
-    setCompareFullLoaded3(false);
-  }, [compareVersion3]);
 
   useEffect(() => {
     let active = true;
@@ -580,7 +574,6 @@ export default function App() {
       try {
         const flat = await bibleService.loadFullBibleForSearch(version);
         setBibleData(flat);
-        setIsFullLoaded(true);
       } catch (err) {
         console.error("Failed to load search database:", err);
         message.error("සෙවුම් දත්ත පූරණය අසාර්ථක විය. (Failed to load search database)");
@@ -594,7 +587,6 @@ export default function App() {
       try {
         const flat = await bibleService.loadFullBibleForSearch(compareVersion);
         setCompareBibleData(flat);
-        setCompareFullLoaded(true);
       } catch (err) {
         console.error("Failed to load compare search database:", err);
       } finally {
@@ -607,7 +599,6 @@ export default function App() {
       try {
         const flat = await bibleService.loadFullBibleForSearch(compareVersion3);
         setCompareBibleData3(flat);
-        setCompareFullLoaded3(true);
       } catch (err) {
         console.error("Failed to load compare 3 search database:", err);
       } finally {
@@ -1043,6 +1034,7 @@ export default function App() {
     setSearchScope,
     bookmarks,
     availableBooks,
+    bookChaptersMap,
     t,
     versionsList
   };
@@ -1151,7 +1143,7 @@ export default function App() {
                   <Text type="secondary" style={{ fontSize: '15px' }}>{t('loadingText')}</Text>
                 </div>
               ) : (
-                <div className="animate-fade-in" style={{ maxWidth: compareMode ? '1440px' : '960px', margin: '0 auto' }}>
+                <div className="animate-fade-in" style={{ maxWidth: compareMode ? '1440px' : '100%', width: (compareMode || isMobile) ? '100%' : '60%', margin: '0 auto' }}>
                   
                   {/* 1. BOOKMARKS VIEW */}
                   {selectedBook === "bookmarks" ? (
@@ -1272,18 +1264,41 @@ export default function App() {
 
                       {/* Chapters list in reading mode */}
                       {!searchActive && totalChapters > 1 && (
-                        <div style={{ marginBottom: '24px' }}>
+                        <div style={{ 
+                          marginBottom: '24px',
+                          position: stickyChapterCard ? 'sticky' : 'static',
+                          top: stickyChapterCard ? (isMobile ? '-16px' : '-32px') : 'auto',
+                          zIndex: stickyChapterCard ? 100 : 'auto',
+                          background: stickyChapterCard ? 'var(--card-bg)' : 'transparent',
+                          padding: stickyChapterCard ? (isMobile ? '12px 16px' : '16px 32px') : '0px',
+                          marginLeft: stickyChapterCard ? (isMobile ? '-16px' : '-32px') : '0px',
+                          marginRight: stickyChapterCard ? (isMobile ? '-16px' : '-32px') : '0px',
+                          borderBottom: stickyChapterCard ? '1px solid var(--border-color)' : 'none',
+                          boxShadow: stickyChapterCard ? '0 4px 6px -1px rgba(0,0,0,0.05)' : 'none'
+                        }}>
                           <Text type="secondary" style={{ display: 'block', marginBottom: '8px', fontWeight: 600 }}>{t('selectChapterLabel')}</Text>
-                          <div className="chapter-grid">
-                            {Array.from({ length: totalChapters }, (_, i) => i + 1).map(ch => (
-                              <div 
-                                key={ch} 
-                                className={`chapter-badge ${selectedChapter === ch ? 'active' : ''}`}
-                                onClick={() => setSelectedChapter(ch)}
-                              >
-                                {ch}
-                              </div>
-                            ))}
+                          <div className="chapter-grid" style={{
+                            padding: stickyChapterCard ? '4px 0' : '16px',
+                            background: stickyChapterCard ? 'transparent' : 'var(--card-bg)',
+                            border: stickyChapterCard ? 'none' : '1px solid var(--border-color)'
+                          }}>
+                            {Array.from({ length: totalChapters }, (_, i) => i + 1).map(ch => {
+                              const vCount = verseCountsData[selectedBook]?.[ch - 1] || 0;
+                              return (
+                                <Tooltip 
+                                  key={ch} 
+                                  title={getLanguage() === 'si' ? `පද ගණන: ${vCount}` : getLanguage() === 'ta' ? `வசனங்கள்: ${vCount}` : `Verses: ${vCount}`}
+                                  mouseEnterDelay={0.1}
+                                >
+                                  <div 
+                                    className={`chapter-badge ${selectedChapter === ch ? 'active' : ''}`}
+                                    onClick={() => setSelectedChapter(ch)}
+                                  >
+                                    {ch}
+                                  </div>
+                                </Tooltip>
+                              );
+                            })}
                           </div>
                         </div>
                       )}
@@ -1353,6 +1368,10 @@ export default function App() {
                                 playAudio={playAudio}
                                 stopAudio={stopAudio}
                                 audioMap={audioMap}
+                                onOpenCommentary={(coords) => {
+                                  setCommentaryCoords(coords);
+                                  setCommentaryVisible(true);
+                                }}
                               />
                             );
                           })
@@ -1485,14 +1504,26 @@ export default function App() {
       >
         {/* General Settings Section */}
         <Title level={5} style={{ marginBottom: '16px', fontSize: '15px' }}>කියවීමේ සැකසුම් (General Settings)</Title>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: theme === 'dark' ? '#1e293b' : '#f8fafc', padding: '12px 16px', borderRadius: '8px', border: '1px solid var(--border-color)', marginBottom: '24px' }}>
-          <span style={{ fontWeight: 500, fontSize: '14px', color: 'var(--text-primary)' }}>
-            {t('showReferencesLabel')}
-          </span>
-          <Switch 
-            checked={showReferences} 
-            onChange={(checked) => setShowReferences(checked)} 
-          />
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginBottom: '24px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: theme === 'dark' ? '#1e293b' : '#f8fafc', padding: '12px 16px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+            <span style={{ fontWeight: 500, fontSize: '14px', color: 'var(--text-primary)' }}>
+              {t('showReferencesLabel')}
+            </span>
+            <Switch 
+              checked={showReferences} 
+              onChange={(checked) => setShowReferences(checked)} 
+            />
+          </div>
+          
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: theme === 'dark' ? '#1e293b' : '#f8fafc', padding: '12px 16px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+            <span style={{ fontWeight: 500, fontSize: '14px', color: 'var(--text-primary)' }}>
+              {getLanguage() === 'si' ? "පරිච්ඡේද තෝරන පුවරුව ස්ථාවරව තබන්න (Make Chapter Select Sticky)" : getLanguage() === 'ta' ? "அதிகாரத் தேர்வை நிலையானதாக ஆக்குங்கள் (Make Chapter Select Sticky)" : "Make Chapter Selection Grid Sticky"}
+            </span>
+            <Switch 
+              checked={stickyChapterCard} 
+              onChange={(checked) => setStickyChapterCard(checked)} 
+            />
+          </div>
         </div>
         
 
@@ -1503,6 +1534,14 @@ export default function App() {
         doubleClickWordInfo={doubleClickWordInfo}
         setDoubleClickWordInfo={setDoubleClickWordInfo}
         fetchStrongsDefinition={fetchStrongsDefinition}
+      />
+
+      {/* Commentary Overlay Popup Drawer */}
+      <CommentaryDrawer
+        visible={commentaryVisible}
+        onClose={() => setCommentaryVisible(false)}
+        verseCoords={commentaryCoords}
+        isMobile={isMobile}
       />
     </ConfigProvider>
   );

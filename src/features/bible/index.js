@@ -13,3 +13,4 @@ export { default as VerseCard } from './components/VerseCard';
 export { default as BookmarksView } from './components/BookmarksView';
 export { default as ReferenceLink } from './components/ReferenceLink';
 export { default as ReferencePanel } from './components/ReferencePanel';
+export { default as CommentaryDrawer } from './components/CommentaryDrawer';

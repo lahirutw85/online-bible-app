@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Card, Popover, Typography, Button, Tooltip } from 'antd';
-import { DeleteOutlined, SoundOutlined, SoundFilled, LoadingOutlined } from '@ant-design/icons';
+import { DeleteOutlined, SoundOutlined, SoundFilled, LoadingOutlined, BookOutlined } from '@ant-design/icons';
 import ReferenceLink from './ReferenceLink';
 
 const { Paragraph } = Typography;
@@ -87,7 +87,8 @@ export default function VerseCard({
   loadingAudioId,
   playAudio,
   stopAudio,
-  audioMap
+  audioMap,
+  onOpenCommentary
 }) {
   const [refsExpanded, setRefsExpanded] = useState(false);
   const [audioExists, setAudioExists] = useState(false);
@@ -459,6 +460,33 @@ export default function VerseCard({
     </div>
   );
 
+  const commentaryButton = (
+    <div style={{ marginLeft: '8px', display: 'flex', alignItems: 'center' }}>
+      <Tooltip title="විවරණය බලන්න (View Commentary)">
+        <Button
+          type="text"
+          shape="circle"
+          icon={<BookOutlined style={{ color: 'var(--accent-color)', fontSize: '18px' }} />}
+          onClick={() => {
+            if (onOpenCommentary) {
+              onOpenCommentary({
+                book: v.book,
+                chapter: v.chapter,
+                verse: v.verse,
+                bookName: bookName
+              });
+            }
+          }}
+          style={{
+            cursor: 'pointer',
+            border: 'none',
+            background: 'transparent'
+          }}
+        />
+      </Tooltip>
+    </div>
+  );
+
   return (
     <Card 
       className="verse-card animate-fade-in" 
@@ -470,7 +498,10 @@ export default function VerseCard({
         <div style={{ flex: 1 }}>
           {renderCardContent()}
         </div>
-        {speakerIcon}
+        <div style={{ display: 'flex', alignItems: 'center' }}>
+          {commentaryButton}
+          {speakerIcon}
+        </div>
       </div>
     </Card>
   );
