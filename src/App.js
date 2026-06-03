@@ -99,11 +99,14 @@ const versionsList = [
   // --- English ---
   { value: "BSB", label: "Berean Study Bible (English)" },
   { value: "KJV", label: "King James Version (English)" },
+  { value: "NKJV", label: "New King James Version (English)" },
+  { value: "NIV", label: "New International Version (English)" },
+  { value: "ESV", label: "English Standard Version (English)" },
   { value: "ASV", label: "American Standard Version (English)" },
   { value: "BBE", label: "Bible in Basic English (English)" },
-  { value: "NIV", label: "New International Version (English)" },
-  { value: "NKJV", label: "New King James Version (English)" },
   { value: "AMP", label: "Amplified Bible (English)" },
+  { value: "MSG", label: "The Message (English)" },
+  { value: "WBS", label: "Webster Bible (English)" },
   { value: "DIVIDER_3", label: "──────────────────", disabled: true },
 
   // --- Other Sinhala at the bottom ---
@@ -799,6 +802,9 @@ export default function App() {
       case 'NIV':
       case 'NKJV':
       case 'AMP':
+      case 'ESV':
+      case 'MSG':
+      case 'WBS':
         return booksDataEn;
       case 'TAMOVR':
         return booksDataTa;
@@ -817,6 +823,9 @@ export default function App() {
       case 'NIV':
       case 'NKJV':
       case 'AMP':
+      case 'ESV':
+      case 'MSG':
+      case 'WBS':
         bookSet = booksDataEn;
         break;
       default:
@@ -835,6 +844,9 @@ export default function App() {
       case 'NIV':
       case 'NKJV':
       case 'AMP':
+      case 'ESV':
+      case 'MSG':
+      case 'WBS':
         return 'en';
       case 'TAMOVR':
         return 'ta';
@@ -968,19 +980,11 @@ export default function App() {
 
   const currentBookName = useMemo(() => {
     if (selectedBook === "bookmarks") {
-      switch (version) {
-        case 'KJV':
-        case 'ASV':
-        case 'BBE':
-        case 'BSB':
-          return "Saved Bookmarks";
-        default:
-          return "සුරැකි පද";
-      }
+      return t('savedBookmarksTitle');
     }
     const book = activeBooks.find(b => b.code === selectedBook);
     return book ? book.name : "";
-  }, [selectedBook, activeBooks, version]);
+  }, [selectedBook, activeBooks, t]);
 
   const totalChapters = useMemo(() => {
     if (selectedBook === "bookmarks") return 0;

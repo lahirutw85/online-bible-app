@@ -76,7 +76,7 @@ export default class BibleService {
    * @returns {boolean}
    */
   isApiVersion(version) {
-    return ["KJV", "ASV", "BBE", "BSB"].includes(version);
+    return ["KJV", "ASV", "BBE", "BSB", "WBS"].includes(version);
   }
 
   /**
@@ -85,7 +85,7 @@ export default class BibleService {
    * @returns {boolean}
    */
   isBollsVersion(version) {
-    return ["NIV", "NKJV", "AMP"].includes(version);
+    return ["NIV", "NKJV", "AMP", "MSG", "ESV"].includes(version);
   }
 
   /**
@@ -100,7 +100,7 @@ export default class BibleService {
    * @returns {Promise<Array<{book: string, chapter: number, verse: number, text: string}>>}
    */
   async fetchChapter(book, chapter, version) {
-    const apiVersions = { "KJV": "eng_kjv", "ASV": "eng_asv", "BBE": "eng_bbe", "BSB": "BSB" };
+    const apiVersions = { "KJV": "eng_kjv", "ASV": "eng_asv", "BBE": "eng_bbe", "BSB": "BSB", "WBS": "eng_wbs" };
 
     if (this.isBollsVersion(version)) {
       const cacheKey = `${version}_${book}_${chapter}`;
@@ -249,7 +249,7 @@ export default class BibleService {
     }
 
     if (this.isApiVersion(version)) {
-      const apiVersions = { "KJV": "eng_kjv", "ASV": "eng_asv", "BBE": "eng_bbe", "BSB": "BSB" };
+      const apiVersions = { "KJV": "eng_kjv", "ASV": "eng_asv", "BBE": "eng_bbe", "BSB": "BSB", "WBS": "eng_wbs" };
       const apiId = apiVersions[version];
 
       const res = await fetch(`https://bible.helloao.org/api/${apiId}/complete.json`);
