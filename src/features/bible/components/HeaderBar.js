@@ -1,5 +1,5 @@
 import React from 'react';
-import { Layout, Typography, Space, Button, Select, Tooltip, Input, Radio } from 'antd';
+import { Layout, Typography, Space, Button, Select, Tooltip, Input, Radio, AutoComplete } from 'antd';
 import { 
   MenuUnfoldOutlined, 
   MenuFoldOutlined, 
@@ -48,6 +48,8 @@ const { Title } = Typography;
  * @param {Array<Object>} props.versionsList - Details of supported translations.
  * @param {Function} props.getLanguage - Maps translation codes to locales ('si' | 'ta' | 'en').
  * @param {string} props.logo - URL of brand logo graphic.
+ * @param {Array<Object>} props.suggestions - Real-time autocomplete suggestions.
+ * @param {Function} props.handleSelectSuggestion - Selected suggestion click handler.
  */
 export default function HeaderBar({
   theme,
@@ -79,7 +81,9 @@ export default function HeaderBar({
   t,
   versionsList,
   getLanguage,
-  logo
+  logo,
+  suggestions = [],
+  handleSelectSuggestion
 }) {
   return (
     <Header style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, width: '100%', zIndex: 1000 }}>
@@ -225,14 +229,20 @@ export default function HeaderBar({
 
         {/* Main query search inputs (Desktop Viewports only) */}
         {!isMobile && selectedBook !== "bookmarks" && (
-          <Input.Search 
-            placeholder={t('searchPlaceholder')}
+          <AutoComplete
+            options={suggestions}
             value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            onSearch={handleSearch}
-            allowClear
-            style={{ width: 280 }} 
-          />
+            onChange={(val) => setSearchTerm(val)}
+            onSelect={(val, option) => handleSelectSuggestion(val, option)}
+            style={{ width: 280 }}
+            popupClassName="search-suggestions-dropdown"
+          >
+            <Input.Search 
+              placeholder={t('searchPlaceholder')}
+              onSearch={handleSearch}
+              allowClear
+            />
+          </AutoComplete>
         )}
       </div>
     </Header>

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Menu, Button, Select, Typography, Radio, Badge, Input } from 'antd';
+import { Menu, Button, Select, Typography, Radio, Badge, Input, AutoComplete } from 'antd';
 import { BookOutlined, TranslationOutlined, StarFilled } from '@ant-design/icons';
 
 const { Text } = Typography;
@@ -38,6 +38,8 @@ const { Text } = Typography;
  * @param {Array<Object>} props.availableBooks - Filtered listing of books matching active translation.
  * @param {Function} props.t - Translates internal static key names to local strings.
  * @param {Array<Object>} props.versionsList - Details of supported translations.
+ * @param {Array<Object>} props.suggestions - Real-time autocomplete suggestions.
+ * @param {Function} props.handleSelectSuggestion - Suggestion click handler.
  */
 export default function SiderContent({
   isMobile,
@@ -67,7 +69,9 @@ export default function SiderContent({
   availableBooks,
   bookChaptersMap,
   t,
-  versionsList
+  versionsList,
+  suggestions = [],
+  handleSelectSuggestion
 }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
@@ -160,17 +164,26 @@ export default function SiderContent({
           <div>
             <Text type="secondary" style={{ fontSize: '11px', display: 'block', marginBottom: '4px' }}>{t('searchLabel')}</Text>
             {selectedBook !== "bookmarks" && (
-              <Input.Search 
-                placeholder={t('searchPlaceholder')}
+              <AutoComplete
+                options={suggestions}
                 value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                onSearch={(val) => {
-                  handleSearch(val);
+                onChange={(val) => setSearchTerm(val)}
+                onSelect={(val, option) => {
+                  handleSelectSuggestion(val, option);
                   setCollapsed(true);
                 }}
-                allowClear
-                style={{ width: '100%' }} 
-              />
+                style={{ width: '100%' }}
+                popupClassName="search-suggestions-dropdown"
+              >
+                <Input.Search 
+                  placeholder={t('searchPlaceholder')}
+                  onSearch={(val) => {
+                    handleSearch(val);
+                    setCollapsed(true);
+                  }}
+                  allowClear
+                />
+              </AutoComplete>
             )}
           </div>
           {searchActive && selectedBook !== "bookmarks" && (

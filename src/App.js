@@ -117,6 +117,17 @@ const versionsList = [
 // Reusable spinner component using Ant Design's spin algorithm
 const antIcon = <LoadingOutlined style={{ fontSize: 32 }} spin />;
 
+const normalizeBookNameForMatching = (name) => {
+  if (!name) return "";
+  return name.toLowerCase()
+    .replace(/^ශු\.\s*/, '')
+    .replace(/^ශුද්ධ\s*වූ\s*/, '')
+    .replace(/^ශුද්ධවූ\s*/, '')
+    .replace(/^i\s+/, '1')
+    .replace(/^ii\s+/, '2')
+    .replace(/^iii\s+/, '3')
+    .replace(/\s+/g, '');
+};
 
 /* =========================================================================
    SECTION 2: MAIN APP COMPONENT EXPORT
@@ -148,6 +159,8 @@ export default function App() {
   const [searchScope, setSearchScope] = useState("global");
   const [searchActive, setSearchActive] = useState(false);
   const [searchLoading, setSearchLoading] = useState(false);
+  const [searchVersion, setSearchVersion] = useState("");
+  const [searchBibleData, setSearchBibleData] = useState([]);
 
   /* --- F. Verse Comparison Mode States --- */
   const [compareMode, setCompareMode] = useState(false);
@@ -572,50 +585,77 @@ export default function App() {
       return;
     }
 
-    if (bibleData.length < 1000) {
-      setSearchLoading(true);
-      try {
-        const flat = await bibleService.loadFullBibleForSearch(version);
-        setBibleData(flat);
-      } catch (err) {
-        console.error("Failed to load search database:", err);
-        message.error("සෙවුම් දත්ත පූරණය අසාර්ථක විය. (Failed to load search database)");
-      } finally {
-        setSearchLoading(false);
+    setSearchLoading(true);
+    try {
+      // 1. Detect search language and matching version
+      const hasSinhala = /[\u0D80-\u0DFF]/.test(val);
+      const hasTamil = /[\u0B80-\u0BFF]/.test(val);
+      let targetSearchVersion = version;
+      
+      if (hasSinhala) {
+        if (!['SINBIBLE', 'ROV', '2018'].includes(version)) {
+          targetSearchVersion = 'SINBIBLE';
+        }
+      } else if (hasTamil) {
+        if (version !== 'TAMOVR') {
+          targetSearchVersion = 'TAMOVR';
+        }
+      } else {
+        const isEnglish = ['KJV', 'ASV', 'BBE', 'BSB', 'NIV', 'NKJV', 'AMP', 'ESV', 'MSG', 'WBS'].includes(version);
+        if (!isEnglish) {
+          targetSearchVersion = 'BSB';
+        }
       }
-    }
+      
+      setSearchVersion(targetSearchVersion);
 
-    if (compareMode && compareBibleData.length < 1000) {
-      setSearchLoading(true);
-      try {
-        const flat = await bibleService.loadFullBibleForSearch(compareVersion);
-        setCompareBibleData(flat);
-      } catch (err) {
-        console.error("Failed to load compare search database:", err);
-      } finally {
-        setSearchLoading(false);
+      // 2. Load active version's full Bible if not already loaded
+      let activeFlat = bibleData;
+      if (bibleData.length < 1000) {
+        activeFlat = await bibleService.loadFullBibleForSearch(version);
+        setBibleData(activeFlat);
       }
-    }
 
-    if (compareMode && threeWayCompare && compareBibleData3.length < 1000) {
-      setSearchLoading(true);
-      try {
-        const flat = await bibleService.loadFullBibleForSearch(compareVersion3);
-        setCompareBibleData3(flat);
-      } catch (err) {
-        console.error("Failed to load compare 3 search database:", err);
-      } finally {
-        setSearchLoading(false);
+      // 3. Load target search version's full Bible if different and not loaded
+      let searchFlat = activeFlat;
+      if (targetSearchVersion !== version) {
+        searchFlat = await bibleService.loadFullBibleForSearch(targetSearchVersion);
       }
-    }
+      setSearchBibleData(searchFlat);
 
-    setSearchTerm(val);
-    setSearchActive(true);
+      // Handle compare versions search databases if compare mode is active
+      if (compareMode && compareBibleData.length < 1000) {
+        try {
+          const flatCompare = await bibleService.loadFullBibleForSearch(compareVersion);
+          setCompareBibleData(flatCompare);
+        } catch (err) {
+          console.error("Failed to load compare search database:", err);
+        }
+      }
+      if (compareMode && threeWayCompare && compareBibleData3.length < 1000) {
+        try {
+          const flatCompare3 = await bibleService.loadFullBibleForSearch(compareVersion3);
+          setCompareBibleData3(flatCompare3);
+        } catch (err) {
+          console.error("Failed to load compare 3 search database:", err);
+        }
+      }
+
+      setSearchTerm(val);
+      setSearchActive(true);
+    } catch (err) {
+      console.error("Failed to load search database:", err);
+      message.error("සෙවුම් දත්ත පූරණය අසාර්ථක විය. (Failed to load search database)");
+    } finally {
+      setSearchLoading(false);
+    }
   };
 
   const clearSearch = () => {
     setSearchTerm("");
     setSearchActive(false);
+    setSearchVersion("");
+    setSearchBibleData([]);
   };
 
   const handlePrevChapter = () => {
@@ -677,6 +717,19 @@ export default function App() {
         setTimeout(() => el.classList.remove('flash-effect'), 2000);
       }
     }, 400);
+  };
+
+  const handleSelectSuggestion = (val, option) => {
+    if (option.type === 'search') {
+      handleSearch(val);
+    } else if (option.type === 'reference') {
+      handleJumpToVerse({
+        book: option.ref.book,
+        chapter: option.ref.chapter,
+        verse: option.ref.verse,
+        version: version
+      });
+    }
   };
 
 
@@ -996,20 +1049,203 @@ export default function App() {
 
     if (searchActive && searchTerm.trim() !== "") {
       const normalizedSearch = searchTerm.trim().toLowerCase();
+      const isDifferentVersion = searchVersion && searchVersion !== version;
       
-      return bibleData.filter(v => {
-        const matchesText = v.text.toLowerCase().includes(normalizedSearch);
-        if (!matchesText) return false;
+      if (isDifferentVersion && searchBibleData.length > 0) {
+        // 1. Filter the search version Bible
+        const matchedSearchVerses = searchBibleData.filter(v => {
+          const matchesText = v.text.toLowerCase().includes(normalizedSearch);
+          if (!matchesText) return false;
+          if (searchScope === 'book') {
+            return v.book === selectedBook;
+          }
+          return true;
+        });
         
-        if (searchScope === 'book') {
-          return v.book === selectedBook;
-        }
-        return true;
-      });
+        // 2. Map matched verses to active version (bibleData)
+        const activeMap = {};
+        bibleData.forEach(v => {
+          activeMap[`${v.book}_${v.chapter}_${v.verse}`] = v;
+        });
+        
+        return matchedSearchVerses.map(sv => {
+          const key = `${sv.book}_${sv.chapter}_${sv.verse}`;
+          const activeVerse = activeMap[key];
+          if (activeVerse) {
+            return {
+              ...activeVerse,
+              searchTextMatched: sv.text
+            };
+          }
+          return null;
+        }).filter(Boolean);
+      } else {
+        // Same version search
+        return bibleData.filter(v => {
+          const matchesText = v.text.toLowerCase().includes(normalizedSearch);
+          if (!matchesText) return false;
+          
+          if (searchScope === 'book') {
+            return v.book === selectedBook;
+          }
+          return true;
+        });
+      }
     }
 
     return bibleData.filter(v => v.book === selectedBook && v.chapter === selectedChapter);
-  }, [bibleData, selectedBook, selectedChapter, searchTerm, searchScope, searchActive]);
+  }, [bibleData, selectedBook, selectedChapter, searchTerm, searchScope, searchActive, searchVersion, version, searchBibleData]);
+
+  const suggestions = useMemo(() => {
+    if (!searchTerm || searchTerm.trim() === '') return [];
+    
+    const cleanInput = searchTerm.trim();
+    
+    // Parse input
+    const match = cleanInput.match(/^([123]\s*[a-zA-Z\u0D80-\u0DFF\u0B80-\u0BFF]+|[a-zA-Z\u0D80-\u0DFF\u0B80-\u0BFF\s]+?)\s*(\d+)?(?:\s*[:.]\s*(\d+)?)?$/);
+    
+    const matchedBooks = [];
+    let bookPart = '';
+    let chapterPart = null;
+    let versePart = null;
+    
+    if (match) {
+      bookPart = match[1].trim();
+      chapterPart = match[2] ? parseInt(match[2], 10) : null;
+      versePart = match[3] ? match[3] : null;
+      
+      const normalizedBookPart = normalizeBookNameForMatching(bookPart);
+      
+      availableBooks.forEach(book => {
+        const enBook = booksDataEn.find(b => b.code === book.code) || book;
+        const siBook = booksData.find(b => b.code === book.code) || book;
+        const taBook = booksDataTa.find(b => b.code === book.code) || book;
+        
+        const matchesEnCode = normalizeBookNameForMatching(enBook.code).startsWith(normalizedBookPart);
+        const matchesEnName = normalizeBookNameForMatching(enBook.name).startsWith(normalizedBookPart);
+        const matchesSiName = normalizeBookNameForMatching(siBook.name).startsWith(normalizedBookPart);
+        const matchesTaName = normalizeBookNameForMatching(taBook.name).startsWith(normalizedBookPart);
+        
+        if (matchesEnCode || matchesEnName || matchesSiName || matchesTaName) {
+          matchedBooks.push({
+            code: book.code,
+            enName: enBook.name,
+            siName: siBook.name,
+            taName: taBook.name
+          });
+        }
+      });
+    }
+    
+    const list = [];
+    
+    // Add "Search in entire Bible" option if there is text
+    const isEnglishInput = /^[a-zA-Z0-9\s.:]*$/.test(cleanInput);
+    const searchLabel = getLanguage() === 'si' 
+      ? `🔍 "${cleanInput}" මුළු බයිබලය පුරාම සොයන්න` 
+      : getLanguage() === 'ta' 
+      ? `🔍 "${cleanInput}" முழு வேதாகமத்தில் தேடுக` 
+      : `🔍 Search for "${cleanInput}" in entire Bible`;
+      
+    list.push({
+      value: cleanInput,
+      label: searchLabel,
+      type: 'search'
+    });
+    
+    if (matchedBooks.length > 0) {
+      matchedBooks.forEach(book => {
+        const maxChapters = bookChaptersMap[book.code] || 1;
+        const bookVerseCounts = verseCountsData[book.code] || [];
+        
+        // 1. User specified chapter
+        if (chapterPart !== null) {
+          if (chapterPart > 0 && chapterPart <= maxChapters) {
+            const maxVerses = bookVerseCounts[chapterPart - 1] || 1;
+            
+            // 2. User specified verse prefix
+            if (versePart !== null) {
+              const matchesVerses = [];
+              for (let v = 1; v <= maxVerses; v++) {
+                if (String(v).startsWith(versePart)) {
+                  matchesVerses.push(v);
+                }
+              }
+              // Add suggestions for matched verses
+              matchesVerses.slice(0, 5).forEach(v => {
+                let refLabel = "";
+                let refValue = "";
+                
+                if (isEnglishInput) {
+                  refLabel = `${book.code} ${chapterPart}:${v} (${book.siName} ${chapterPart}:${v})`;
+                  refValue = `${book.code} ${chapterPart}:${v}`;
+                } else if (/[\u0D80-\u0DFF]/.test(cleanInput)) {
+                  refLabel = `${book.siName} ${chapterPart}:${v}`;
+                  refValue = `${book.siName} ${chapterPart}:${v}`;
+                } else {
+                  refLabel = `${book.taName} ${chapterPart}:${v}`;
+                  refValue = `${book.taName} ${chapterPart}:${v}`;
+                }
+                
+                list.push({
+                  value: refValue,
+                  label: refLabel,
+                  type: 'reference',
+                  ref: { book: book.code, chapter: chapterPart, verse: v }
+                });
+              });
+            } else {
+              // Suggest first verse of specified chapter
+              let refLabel = "";
+              let refValue = "";
+              
+              if (isEnglishInput) {
+                refLabel = `${book.code} ${chapterPart}:1 (${book.siName} ${chapterPart}:1)`;
+                refValue = `${book.code} ${chapterPart}:1`;
+              } else if (/[\u0D80-\u0DFF]/.test(cleanInput)) {
+                refLabel = `${book.siName} ${chapterPart}:1`;
+                refValue = `${book.siName} ${chapterPart}:1`;
+              } else {
+                refLabel = `${book.taName} ${chapterPart}:1`;
+                refValue = `${book.taName} ${chapterPart}:1`;
+              }
+              
+              list.push({
+                value: refValue,
+                label: refLabel,
+                type: 'reference',
+                ref: { book: book.code, chapter: chapterPart, verse: 1 }
+              });
+            }
+          }
+        } else {
+          // No chapter specified, suggest chapter 1 verse 1
+          let refLabel = "";
+          let refValue = "";
+          
+          if (isEnglishInput) {
+            refLabel = `${book.code} 1:1 (${book.siName} 1:1)`;
+            refValue = `${book.code} 1:1`;
+          } else if (/[\u0D80-\u0DFF]/.test(cleanInput)) {
+            refLabel = `${book.siName} 1:1`;
+            refValue = `${book.siName} 1:1`;
+          } else {
+            refLabel = `${book.taName} 1:1`;
+            refValue = `${book.taName} 1:1`;
+          }
+          
+          list.push({
+            value: refValue,
+            label: refLabel,
+            type: 'reference',
+            ref: { book: book.code, chapter: 1, verse: 1 }
+          });
+        }
+      });
+    }
+    
+    return list.slice(0, 15);
+  }, [searchTerm, availableBooks, getLanguage]);
 
   // Shared props objects for SiderContent component
   const sharedSiderProps = {
@@ -1040,7 +1276,9 @@ export default function App() {
     availableBooks,
     bookChaptersMap,
     t,
-    versionsList
+    versionsList,
+    suggestions,
+    handleSelectSuggestion
   };
 
   return (
@@ -1088,6 +1326,8 @@ export default function App() {
           versionsList={versionsList}
           getLanguage={getLanguage}
           logo={logo}
+          suggestions={suggestions}
+          handleSelectSuggestion={handleSelectSuggestion}
         />
 
         <Layout>

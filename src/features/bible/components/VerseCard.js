@@ -497,6 +497,22 @@ export default function VerseCard({
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', width: '100%' }}>
         <div style={{ flex: 1 }}>
           {renderCardContent()}
+          {v.searchTextMatched && (
+            <div style={{ 
+              fontSize: '12px', 
+              marginTop: '10px', 
+              fontStyle: 'italic', 
+              opacity: 0.85, 
+              color: 'var(--accent-color)',
+              padding: '6px 10px',
+              background: theme === 'dark' ? 'rgba(24, 144, 255, 0.08)' : 'rgba(24, 144, 255, 0.04)',
+              borderRadius: '6px',
+              borderLeft: '2px solid var(--accent-color)',
+              display: 'inline-block'
+            }}>
+              Matched in search: {renderHighlightedText(v.searchTextMatched, searchTerm)}
+            </div>
+          )}
         </div>
         <div style={{ display: 'flex', alignItems: 'center' }}>
           {commentaryButton}
