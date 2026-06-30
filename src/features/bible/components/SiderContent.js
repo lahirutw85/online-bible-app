@@ -1,6 +1,6 @@
 import React from 'react';
 import { Menu, Button, Select, Typography, Radio, Badge, Input, AutoComplete } from 'antd';
-import { BookOutlined, TranslationOutlined, StarFilled } from '@ant-design/icons';
+import { BookOutlined, TranslationOutlined, StarFilled, SearchOutlined } from '@ant-design/icons';
 
 const { Text } = Typography;
 
@@ -175,12 +175,21 @@ export default function SiderContent({
                 style={{ width: '100%' }}
                 popupClassName="search-suggestions-dropdown"
               >
-                <Input.Search 
+                <Input 
                   placeholder={t('searchPlaceholder')}
-                  onSearch={(val) => {
-                    handleSearch(val);
+                  onPressEnter={(e) => {
+                    handleSearch(e.target.value);
                     setCollapsed(true);
                   }}
+                  suffix={
+                    <SearchOutlined 
+                      onClick={() => {
+                        handleSearch(searchTerm);
+                        setCollapsed(true);
+                      }}
+                      style={{ cursor: 'pointer', color: 'var(--accent-color)', fontSize: '16px' }}
+                    />
+                  }
                   allowClear
                 />
               </AutoComplete>

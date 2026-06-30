@@ -6,7 +6,8 @@ import {
   TranslationOutlined, 
   SunOutlined, 
   MoonOutlined, 
-  SettingOutlined 
+  SettingOutlined,
+  SearchOutlined
 } from '@ant-design/icons';
 
 const { Header } = Layout;
@@ -237,9 +238,15 @@ export default function HeaderBar({
             style={{ width: 280 }}
             popupClassName="search-suggestions-dropdown"
           >
-            <Input.Search 
+            <Input 
               placeholder={t('searchPlaceholder')}
-              onSearch={handleSearch}
+              onPressEnter={(e) => handleSearch(e.target.value)}
+              suffix={
+                <SearchOutlined 
+                  onClick={() => handleSearch(searchTerm)}
+                  style={{ cursor: 'pointer', color: 'var(--accent-color)', fontSize: '16px' }}
+                />
+              }
               allowClear
             />
           </AutoComplete>

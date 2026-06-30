@@ -119,6 +119,25 @@ body {
   height: 38px !important;
 }
 
+.ant-input-affix-wrapper {
+  border-radius: 8px !important;
+  border-color: var(--border-color) !important;
+  height: 38px !important;
+  display: flex !important;
+  align-items: center !important;
+  background-color: transparent !important;
+}
+
+[data-theme='dark'] .ant-input-affix-wrapper {
+  background-color: #1e293b !important;
+}
+
+.ant-input-affix-wrapper .ant-input {
+  background-color: transparent !important;
+  border: none !important;
+  height: auto !important;
+}
+
 /* Verse Card Styling */
 .verse-card {
   border-radius: var(--border-radius) !important;

@@ -1139,19 +1139,7 @@ export default function App() {
     
     const list = [];
     
-    // Add "Search in entire Bible" option if there is text
     const isEnglishInput = /^[a-zA-Z0-9\s.:]*$/.test(cleanInput);
-    const searchLabel = getLanguage() === 'si' 
-      ? `🔍 "${cleanInput}" මුළු බයිබලය පුරාම සොයන්න` 
-      : getLanguage() === 'ta' 
-      ? `🔍 "${cleanInput}" முழு வேதாகமத்தில் தேடுக` 
-      : `🔍 Search for "${cleanInput}" in entire Bible`;
-      
-    list.push({
-      value: cleanInput,
-      label: searchLabel,
-      type: 'search'
-    });
     
     if (matchedBooks.length > 0) {
       matchedBooks.forEach(book => {
