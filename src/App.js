@@ -585,6 +585,73 @@ export default function App() {
       return;
     }
 
+    const cleanInput = val.trim();
+    
+    // Check if the query matches a bible book/verse reference format (e.g. mat5.5, gen 1:1, etc.)
+    const refMatch = cleanInput.match(/^([123]\s*[a-zA-Z\u0D80-\u0DFF\u0B80-\u0BFF]+|[a-zA-Z\u0D80-\u0DFF\u0B80-\u0BFF\s]+?)\s*(\d+)?(?:\s*[:.]\s*(\d+)?)?$/);
+    if (refMatch) {
+      const bookPart = refMatch[1].trim();
+      const chapterPart = refMatch[2] ? parseInt(refMatch[2], 10) : null;
+      const versePart = refMatch[3] ? parseInt(refMatch[3], 10) : null;
+      
+      const normalizedBookPart = normalizeBookNameForMatching(bookPart);
+      const matchedBooks = [];
+      
+      availableBooks.forEach(book => {
+        const enBook = booksDataEn.find(b => b.code === book.code) || book;
+        const siBook = booksData.find(b => b.code === book.code) || book;
+        const taBook = booksDataTa.find(b => b.code === book.code) || book;
+        
+        const matchesEnCode = normalizeBookNameForMatching(enBook.code).startsWith(normalizedBookPart);
+        const matchesEnName = normalizeBookNameForMatching(enBook.name).startsWith(normalizedBookPart);
+        const matchesSiName = normalizeBookNameForMatching(siBook.name).startsWith(normalizedBookPart);
+        const matchesTaName = normalizeBookNameForMatching(taBook.name).startsWith(normalizedBookPart);
+        
+        if (matchesEnCode || matchesEnName || matchesSiName || matchesTaName) {
+          matchedBooks.push(book.code);
+        }
+      });
+      
+      if (matchedBooks.length > 0) {
+        const bookCode = matchedBooks[0];
+        const maxChapters = bookChaptersMap[bookCode] || 1;
+        
+        let finalChapter = 1;
+        let isValid = true;
+        if (chapterPart !== null) {
+          if (chapterPart > 0 && chapterPart <= maxChapters) {
+            finalChapter = chapterPart;
+          } else {
+            isValid = false;
+          }
+        }
+        
+        if (isValid) {
+          const bookVerseCounts = verseCountsData[bookCode] || [];
+          const maxVerses = bookVerseCounts[finalChapter - 1] || 1;
+          
+          let finalVerse = 1;
+          if (versePart !== null) {
+            if (versePart > 0 && versePart <= maxVerses) {
+              finalVerse = versePart;
+            } else {
+              isValid = false;
+            }
+          }
+          
+          if (isValid) {
+            handleJumpToVerse({
+              book: bookCode,
+              chapter: finalChapter,
+              verse: finalVerse,
+              version: version
+            });
+            return;
+          }
+        }
+      }
+    }
+
     setSearchLoading(true);
     try {
       // 1. Detect search language and matching version
