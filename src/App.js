@@ -9,7 +9,7 @@
  * @version 1.4.0
  */
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { 
   Layout, 
   Typography, 
@@ -193,6 +193,9 @@ export default function App() {
   // Instantiate Reference Service class for loading cross references
   const referenceService = useMemo(() => new ReferenceService(), []);
 
+  const desktopSearchRef = useRef(null);
+  const mobileSearchRef = useRef(null);
+
   /* --- K. Reading Preferences States --- */
   const [showReferences, setShowReferences] = useState(() => {
     const saved = localStorage.getItem("bible-show-references");
@@ -211,6 +214,31 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem("bible-sticky-chapter-card", stickyChapterCard);
   }, [stickyChapterCard]);
+
+  // Handle F5 key to focus search bar instead of reloading the page
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'F5') {
+        e.preventDefault();
+        if (isMobile) {
+          setCollapsed(false);
+          setTimeout(() => {
+            if (mobileSearchRef.current) {
+              mobileSearchRef.current.focus();
+              mobileSearchRef.current.select();
+            }
+          }, 300);
+        } else {
+          if (desktopSearchRef.current) {
+            desktopSearchRef.current.focus();
+            desktopSearchRef.current.select();
+          }
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isMobile]);
 
   /* --- L. Split screen reference panels states --- */
   const [referencePanels, setReferencePanels] = useState([]);
@@ -1331,7 +1359,8 @@ export default function App() {
     t,
     versionsList,
     suggestions,
-    handleSelectSuggestion
+    handleSelectSuggestion,
+    mobileSearchRef
   };
 
   return (
@@ -1379,6 +1408,7 @@ export default function App() {
           logo={logo}
           suggestions={suggestions}
           handleSelectSuggestion={handleSelectSuggestion}
+          desktopSearchRef={desktopSearchRef}
         />
 
         <Layout>

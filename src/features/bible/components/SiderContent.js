@@ -69,7 +69,8 @@ export default function SiderContent({
   t,
   versionsList,
   suggestions = [],
-  handleSelectSuggestion
+  handleSelectSuggestion,
+  mobileSearchRef
 }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
@@ -170,10 +171,12 @@ export default function SiderContent({
                   handleSelectSuggestion(val, option);
                   setCollapsed(true);
                 }}
+                open={suggestions.length > 0 && searchTerm.trim() !== ''}
                 style={{ width: '100%' }}
                 popupClassName="search-suggestions-dropdown"
               >
                 <Input 
+                  ref={mobileSearchRef}
                   placeholder={t('searchPlaceholder')}
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}

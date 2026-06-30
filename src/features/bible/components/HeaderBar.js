@@ -82,7 +82,8 @@ export default function HeaderBar({
   getLanguage,
   logo,
   suggestions = [],
-  handleSelectSuggestion
+  handleSelectSuggestion,
+  desktopSearchRef
 }) {
   return (
     <Header style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, width: '100%', zIndex: 1000 }}>
@@ -219,10 +220,12 @@ export default function HeaderBar({
             value={searchTerm}
             onChange={(val) => setSearchTerm(val)}
             onSelect={(val, option) => handleSelectSuggestion(val, option)}
+            open={suggestions.length > 0 && searchTerm.trim() !== ''}
             style={{ width: 280 }}
             popupClassName="search-suggestions-dropdown"
           >
             <Input 
+              ref={desktopSearchRef}
               placeholder={t('searchPlaceholder')}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
