@@ -71,8 +71,6 @@ export default function HeaderBar({
   searchTerm,
   setSearchTerm,
   handleSearch,
-  searchScope,
-  setSearchScope,
   searchActive,
   clearSearch,
   isMobile,
@@ -214,20 +212,6 @@ export default function HeaderBar({
           />
         </Tooltip>
 
-        {/* Search scope toggles (Desktop Viewports only) */}
-        {!isMobile && searchActive && selectedBook !== "bookmarks" && (
-          <Radio.Group 
-            value={searchScope} 
-            onChange={(e) => setSearchScope(e.target.value)}
-            optionType="button"
-            buttonStyle="solid"
-            size="middle"
-          >
-            <Radio.Button value="global">{t('allBooks')}</Radio.Button>
-            <Radio.Button value="book">{t('thisBook')}</Radio.Button>
-          </Radio.Group>
-        )}
-
         {/* Main query search inputs (Desktop Viewports only) */}
         {!isMobile && selectedBook !== "bookmarks" && (
           <AutoComplete
@@ -240,6 +224,8 @@ export default function HeaderBar({
           >
             <Input 
               placeholder={t('searchPlaceholder')}
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
               onPressEnter={(e) => handleSearch(e.target.value)}
               suffix={
                 <SearchOutlined 

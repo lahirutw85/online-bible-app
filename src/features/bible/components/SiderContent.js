@@ -63,8 +63,6 @@ export default function SiderContent({
   searchTerm,
   setSearchTerm,
   handleSearch,
-  searchScope,
-  setSearchScope,
   bookmarks,
   availableBooks,
   bookChaptersMap,
@@ -177,6 +175,8 @@ export default function SiderContent({
               >
                 <Input 
                   placeholder={t('searchPlaceholder')}
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
                   onPressEnter={(e) => {
                     handleSearch(e.target.value);
                     setCollapsed(true);
@@ -195,25 +195,6 @@ export default function SiderContent({
               </AutoComplete>
             )}
           </div>
-          {searchActive && selectedBook !== "bookmarks" && (
-            <div>
-              <Text type="secondary" style={{ fontSize: '11px', display: 'block', marginBottom: '4px' }}>{t('searchScopeLabel')}</Text>
-              <Radio.Group 
-                value={searchScope} 
-                onChange={(e) => {
-                  setSearchScope(e.target.value);
-                  setCollapsed(true);
-                }}
-                optionType="button"
-                buttonStyle="solid"
-                size="small"
-                style={{ width: '100%', display: 'flex' }}
-              >
-                <Radio.Button value="global" style={{ flex: 1, textAlign: 'center' }}>{t('allBooks')}</Radio.Button>
-                <Radio.Button value="book" style={{ flex: 1, textAlign: 'center' }}>{t('thisBook')}</Radio.Button>
-              </Radio.Group>
-            </div>
-          )}
         </div>
       )}
 

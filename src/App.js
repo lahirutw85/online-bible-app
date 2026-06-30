@@ -1258,8 +1258,6 @@ export default function App() {
     searchTerm,
     setSearchTerm,
     handleSearch,
-    searchScope,
-    setSearchScope,
     bookmarks,
     availableBooks,
     bookChaptersMap,
@@ -1302,8 +1300,6 @@ export default function App() {
           searchTerm={searchTerm}
           setSearchTerm={setSearchTerm}
           handleSearch={handleSearch}
-          searchScope={searchScope}
-          setSearchScope={setSearchScope}
           searchActive={searchActive}
           clearSearch={clearSearch}
           isMobile={isMobile}
